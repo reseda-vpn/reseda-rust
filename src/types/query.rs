@@ -1,10 +1,11 @@
-use serde::{Deserialize};
+use serde::{Deserialize, Deserializer};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub enum Query {
     Open,
     Close,
-    Resume
+    Resume,
+    None
 }
 
 #[derive(Debug, Deserialize)]
@@ -13,4 +14,20 @@ pub struct StartQuery {
     // Mapping the following two values together.
     pub client_pub_key: String,
     pub author: String,
+}
+
+impl<'de> Deserialize<'de> for Query {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?.to_lowercase();
+        let state = match s.as_str() {
+            "open" => Query::Open,
+            "close" => Query::Close,
+            "resume" => Query::Resume,
+            _ => Query::None,
+        };
+        Ok(state)
+    }
 }
