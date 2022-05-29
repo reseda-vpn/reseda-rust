@@ -1,0 +1,7 @@
+{
+    "address": "0.0.0.0",
+    "name": "new zealand",
+    "post_up": "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+    "post_down": "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+    "listen_port": 51820
+}

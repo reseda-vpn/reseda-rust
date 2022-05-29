@@ -1,11 +1,10 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}};
+use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
-use uuid::Uuid;
 use warp::ws::{Message, WebSocket};
 
-pub async fn client_connection(ws: WebSocket, clients: Clients, parameters: Option<QueryParameters>) {
+pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Option<QueryParameters>) {
     let (client_ws_sender, mut client_ws_rcv) = ws.split();
     let (client_sender, client_rcv) = mpsc::unbounded_channel();
 
@@ -16,8 +15,6 @@ pub async fn client_connection(ws: WebSocket, clients: Clients, parameters: Opti
             println!("[ERROR] In: Sending WebSocket Message '{}'", e);
         }
     }));
-
-    // let uuid = Uuid::new_v4().to_simple().to_string();
 
     match &parameters {
         Some(obj) => {
@@ -36,7 +33,7 @@ pub async fn client_connection(ws: WebSocket, clients: Clients, parameters: Opti
 
             println!("Created Client: {:?}", client);
 
-            clients.lock().await.insert(obj.author.clone(), client);
+            config.lock().await.clients.lock().await.insert(obj.author.clone(), client);
 
             while let Some(result) = client_ws_rcv.next().await {
                 let msg = match result {
@@ -47,10 +44,10 @@ pub async fn client_connection(ws: WebSocket, clients: Clients, parameters: Opti
                     }
                 };
         
-                client_msg(&obj.author, msg, &clients).await;
+                client_msg(&obj.author, msg, &config.lock().await.clients).await;
             }
         
-            clients.lock().await.remove(&obj.author.clone());
+            config.lock().await.clients.lock().await.remove(&obj.author.clone());
         
             println!("[evt]: Client Removed Successfully");
         }

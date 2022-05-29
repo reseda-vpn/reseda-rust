@@ -1,19 +1,23 @@
-use std::{collections::HashMap, convert::Infallible, sync::Arc, time::Duration};
+use std::{convert::Infallible, sync::Arc, time::Duration, process::Command};
 use tokio::sync::Mutex;
 use warp::{Filter, Rejection};
 use crate::types::{QueryParameters, Clients};
+use crate::wireguard::{WireGuardConfig, WireGuard};
 use std::thread;
-use tokio::runtime::Handle;
-use tokio::runtime::Runtime;
 
 mod lib;
 mod types;
+mod wireguard;
 
 type Result<T> = std::result::Result<T, Rejection>;
 
 #[tokio::main]
 async fn main() {
-    let clients: Clients = Arc::new(Mutex::new(HashMap::new()));
+    let config: WireGuard = Arc::new(Mutex::new(WireGuardConfig::load_from_config("config.reseda")));
+    // // config.lock().await.save_config();
+    // let thread_config = config.clone();
+    // let thread_lock = &*thread_config.lock().await;
+    // thread_lock.save_config();
 
     println!("[SERVICE] ws_handler::start");
 
@@ -23,7 +27,7 @@ async fn main() {
 
     let ws_route = warp::path::end()
         .and(warp::ws())
-        .and(with_clients(clients.clone()))
+        .and(with_config(config.clone()))
         .and(opt_query)
         .and_then(lib::ws_handler);
 
@@ -31,8 +35,20 @@ async fn main() {
 
     tokio::spawn(async {
         loop {
+            // Task will run ever *10s*
             println!("Hi from second thread!");
-            thread::sleep(Duration::from_millis(100));
+            let command_output = Command::new("wg")
+                .args(["show", "reseda", "transfer"])
+                .output()
+                .expect("Failed to see wireguard status.");
+
+            println!("Output: {:?}", command_output);
+            let string_version: String = String::from_utf8(command_output.stdout).expect("Output was not valid utf8.");
+
+            println!("As String: {:?}", string_version);
+
+            // End of Task
+            thread::sleep(Duration::from_millis(1000));
         }
     });
 
@@ -43,6 +59,6 @@ async fn main() {
         .run(([0, 0, 0, 0], 8000)).await;
 }
 
-fn with_clients(clients: Clients) -> impl Filter<Extract = (Clients,), Error = Infallible> + Clone {
-    warp::any().map(move || clients.clone())
+fn with_config(config: WireGuard) -> impl Filter<Extract = (WireGuard,), Error = Infallible> + Clone {
+    warp::any().map(move || config.clone())
 }
