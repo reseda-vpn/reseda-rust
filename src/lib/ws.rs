@@ -1,4 +1,4 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard, WireGuardConfig}};
+use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
