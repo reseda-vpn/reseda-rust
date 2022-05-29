@@ -1,4 +1,4 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard, WireGuardConfig}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -44,7 +44,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                     }
                 };
         
-                client_msg(&obj.author, msg, &config.lock().await.clients).await;
+                client_msg(&obj.author, msg, &config).await;
             }
         
             config.lock().await.clients.lock().await.remove(&obj.author.clone());
@@ -57,7 +57,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
     };
 }
 
-async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
+async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
     let message = match msg.to_str() {
         Ok(v) => v,
         Err(_) => return,
@@ -66,22 +66,26 @@ async fn client_msg(client_id: &str, msg: Message, clients: &Clients) {
     let json: types::StartQuery = match serde_json::from_str(message) {
         Ok(v) => v,
         Err(e) => {
-            return return_to_sender(clients, client_id, format!("{{ \"message\": \"{}\", \"type\": \"error\" }}", e)).await;
+            return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"{}\", \"type\": \"error\" }}", e)).await;
         }
     };
 
     match json.query_type {
         Query::Close => {
             println!("Closing the socket & wireguard conn.");
+            // Remove Client / Kill Websocket Connection, then update config.
+            config.lock().await.save_config().await;
         },
         Query::Open => {
             println!("Opening the socket & wireguard conn.");
+            config.lock().await.save_config().await;
         },
         Query::Resume => {
             println!("Resuming the socket & wireguard conn.");
+            // No need to adjust config if resuming...
         },
         _ => {
-            return return_to_sender(clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
+            return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
         }
     }
 }

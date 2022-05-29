@@ -13,11 +13,12 @@ type Result<T> = std::result::Result<T, Rejection>;
 
 #[tokio::main]
 async fn main() {
-    let config: WireGuard = Arc::new(Mutex::new(WireGuardConfig::load_from_config("config.reseda")));
-    // // config.lock().await.save_config();
-    // let thread_config = config.clone();
-    // let thread_lock = &*thread_config.lock().await;
-    // thread_lock.save_config();
+    let config: WireGuard = Arc::new(
+        Mutex::new(
+            WireGuardConfig::load_from_config("config.reseda")
+                .save_config().await.to_owned()
+        )
+    );
 
     println!("[SERVICE] ws_handler::start");
 
@@ -48,7 +49,7 @@ async fn main() {
             println!("As String: {:?}", string_version);
 
             // End of Task
-            thread::sleep(Duration::from_millis(1000));
+            thread::sleep(Duration::from_millis(10000));
         }
     });
 

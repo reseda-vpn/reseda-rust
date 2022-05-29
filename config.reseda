@@ -3,5 +3,6 @@
     "name": "new zealand",
     "post_up": "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
     "post_down": "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
-    "listen_port": 51820
+    "listen_port": 51820,
+    "dns": "1.1.1.1"
 }
