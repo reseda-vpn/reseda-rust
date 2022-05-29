@@ -1,3 +1,24 @@
+FROM rust:1.49 as build
+
+# create a new empty shell project
+RUN USER=root cargo new --bin reseda
+WORKDIR /reseda
+
+# copy over your manifests
+COPY ./Cargo.lock ./Cargo.lock
+COPY ./Cargo.toml ./Cargo.toml
+
+# this build step will cache your dependencies
+RUN cargo build --release
+RUN rm src/*.rs
+
+# copy your source tree
+COPY ./src ./src
+
+# build for release
+RUN rm ./target/release/deps/reseda*
+RUN cargo build --release
+
 FROM ghcr.io/linuxserver/baseimage-ubuntu:bionic
 
 # set version label
@@ -59,14 +80,11 @@ RUN \
 	/var/lib/apt/lists/* \
 	/var/tmp/*
 
-WORKDIR /usr/src/reseda
-COPY . .
-RUN cargo install --path .
+COPY --from=build /reseda/target/release/reseda .
 
 # ports and volumes
 EXPOSE 51820/udp
-
 EXPOSE 80
 EXPOSE 443
 
-CMD ["sudo", "reseda"]
+CMD ["sudo", "./reseda"]
