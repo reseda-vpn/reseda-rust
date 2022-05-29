@@ -83,22 +83,32 @@ impl WireGuardConfig {
         println!("Taking Down: {}", down_status);
 
         let up_status = &self.config_up().await;
-        println!("Taking Down: {}", up_status);
+        println!("Bringing Up: {}", up_status);
     }
 
-    pub async fn config_up(&self) -> String {
-        let output = Command::new("wg-quick up ./configs/reseda.conf")
-			.output()
-			.expect("Failed to start wireguard!");
-
-        String::from_utf8(output.stderr.to_vec()).unwrap()
+    pub async fn config_up(&self) -> bool {
+        match Command::new("wg-quick up reseda.conf").current_dir("/configs").output() {
+            Ok(output) => {
+                println!("Output: {:?}", output);
+                true
+            }
+            Err(err) => {
+                println!("Failed to bring up reseda server, {:?}", err);
+                false
+            }
+        }
     }
 
-    async fn config_down(&self) -> String {
-        let output = Command::new("wg-quick down ./configs/reseda.conf")
-            .output()
-            .expect("Failed to stop wireguard!");
-
-        String::from_utf8(output.stderr.to_vec()).unwrap()
+    async fn config_down(&self) -> bool {
+        match Command::new("wg-quick down reseda.conf").current_dir("/configs").output() {
+            Ok(output) => {
+                println!("Output: {:?}", output);
+                true
+            }
+            Err(err) => {
+                println!("Failed to take down reseda server, {:?}", err);
+                false
+            }
+        }
     }
 }

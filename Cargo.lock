@@ -676,6 +676,7 @@ dependencies = [
  "futures",
  "serde",
  "serde_json",
+ "sudo",
  "tokio",
  "tokio-stream",
  "uuid",
@@ -847,6 +848,16 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "sudo"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a88e74edf206f281aff2820aa2066c781331044c770626dcafe19491f214e05"
+dependencies = [
+ "libc",
+ "log",
+]
 
 [[package]]
 name = "syn"
