@@ -16,7 +16,7 @@ async fn main() {
     let config: WireGuard = Arc::new(
         Mutex::new(
             WireGuardConfig::load_from_config("config.reseda")
-                .save_config().await.to_owned()
+                .save_config(false).await.to_owned()
         )
     );
 

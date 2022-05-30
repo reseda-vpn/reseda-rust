@@ -43,7 +43,7 @@ impl WireGuardConfig {
         }
     }
 
-    pub async fn save_config(&mut self) -> &mut Self {
+    pub async fn save_config(&mut self, should_restart_force_down: bool) -> &mut Self {
         match fs::write("configs/reseda.conf", &self.generate_config_string().await) {
             Result::Err(_) => {
                 println!("Unable to write!");
@@ -53,7 +53,7 @@ impl WireGuardConfig {
             }
         }
 
-        WireGuardConfig::restart_config(self, false).await;
+        WireGuardConfig::restart_config(self, should_restart_force_down).await;
 
         self
     }
@@ -68,6 +68,8 @@ impl WireGuardConfig {
         elems.push(format!("PostDown = {}", &self.config.post_down));
 
         for (key, value) in self.clients.lock().await.iter() {
+            if !value.connected { break; }
+            
             elems.push("\n".to_string());
             elems.push("[Peer]".to_string());   
             elems.push(format!("PublicKey = {}", value.public_key));

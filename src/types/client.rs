@@ -13,7 +13,14 @@ pub struct Client {
     pub author: String,
     pub public_key: String,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
-    pub maximums: Maximums
+    pub maximums: Maximums,
+    pub connected: bool
+}
+
+impl Client {
+    pub fn set_connectivity(&mut self, new_status: bool) {
+        self.connected = new_status;
+    }
 }
 
 pub type Clients = Arc<Mutex<HashMap<String, Client>>>;

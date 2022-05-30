@@ -28,7 +28,8 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                 maximums: Maximums { 
                     up: 15, 
                     down: 16 
-                }
+                },
+                connected: false
             };
 
             println!("Created Client: {:?}", client);
@@ -70,15 +71,35 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
         }
     };
 
+    let configuration = config.lock().await;
+
     match json.query_type {
         Query::Close => {
             println!("Closing the socket & wireguard conn.");
+            let mut locked = configuration.clients.lock().await;
+
+            match locked.get_mut(client_id) {
+                Some(v) => {
+                    v.set_connectivity(false);
+                }
+                None => (),
+            }
+
             // Remove Client / Kill Websocket Connection, then update config.
-            config.lock().await.save_config().await;
+            config.lock().await.save_config(true).await;
         },
         Query::Open => {
             println!("Opening the socket & wireguard conn.");
-            config.lock().await.save_config().await;
+            let mut locked = configuration.clients.lock().await;
+
+            match locked.get_mut(client_id) {
+                Some(v) => {
+                    v.set_connectivity(true);
+                }
+                None => (),
+            }
+
+            config.lock().await.save_config(true).await;
         },
         Query::Resume => {
             println!("Resuming the socket & wireguard conn.");
