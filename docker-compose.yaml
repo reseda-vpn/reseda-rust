@@ -18,6 +18,7 @@ services:
     ports:
       # Wireguard
       - 51820:51820/udp
+      - 8000:8000
       # Reseda Websockets
       - 80:80
       - 443:443

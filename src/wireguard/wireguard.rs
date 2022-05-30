@@ -53,7 +53,7 @@ impl WireGuardConfig {
             }
         }
 
-        WireGuardConfig::restart_config(self).await;
+        WireGuardConfig::restart_config(self, false).await;
 
         self
     }
@@ -78,29 +78,36 @@ impl WireGuardConfig {
         elems.join("\n")
     }
 
-    pub async fn restart_config(&mut self) {
-        let down_status = &self.config_down().await;
-        println!("Taking Down: {}", down_status);
+    pub async fn restart_config(&mut self, take_down: bool) {
+        if take_down {
+            let down_status = &self.config_down().await;
+            println!("Taking Down: {}", down_status);
+        }
 
         let up_status = &self.config_up().await;
         println!("Bringing Up: {}", up_status);
     }
 
     pub async fn config_up(&self) -> bool {
-        match Command::new("wg-quick up reseda.conf").current_dir("/configs").output() {
-            Ok(output) => {
-                println!("Output: {:?}", output);
-                true
-            }
-            Err(err) => {
-                println!("Failed to bring up reseda server, {:?}", err);
-                false
-            }
+        match Command::new("wg-quick")
+            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
+            .args(["up", "./configs/reseda.conf"]).output() {
+                Ok(output) => {
+                    println!("Output: {:?}", output);
+                    true
+                }
+                Err(err) => {
+                    println!("Failed to bring up reseda server, {:?}", err);
+                    false
+                }
         }
     }
 
     async fn config_down(&self) -> bool {
-        match Command::new("wg-quick down reseda.conf").current_dir("/configs").output() {
+        match Command::new("wg-quick")
+            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
+            .args(["down", "./configs/reseda.conf"])
+            .output() {
             Ok(output) => {
                 println!("Output: {:?}", output);
                 true

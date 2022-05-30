@@ -7,7 +7,7 @@ WORKDIR /reseda
 ADD . .
 RUN cargo build --release
 
-FROM debian:stable-slim
+FROM ubuntu:latest
 
 # set version label
 ARG WIREGUARD_RELEASE="v1.0.20210914"
@@ -23,6 +23,8 @@ RUN \
 	bc \
 	build-essential \
 	curl \
+	# netfilter-persistent \ 
+	# iptables-persistent \ 
 	dkms \
 	git \
 	gnupg \ 
@@ -77,6 +79,7 @@ ADD config.reseda ./app
 
 # ports and volumes
 EXPOSE 51820/udp
+EXPOSE 8000
 EXPOSE 80
 EXPOSE 443
 
