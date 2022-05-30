@@ -1,17 +1,26 @@
-FROM rust:1.50 as builder
-RUN USER=root
+FROM rust:latest AS chef
+# We only pay the installation cost once,
+# it will be cached from the second build onwards
+RUN cargo install cargo-chef
 
-RUN mkdir reseda
-WORKDIR /reseda
+WORKDIR reseda
 
-ADD . ./
-RUN cargo clean && \
-    cargo build -vv --release
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+COPY --from=planner /reseda/recipe.json recipe.json
+# Build dependencies - this is the caching Docker layer!
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Build application
+COPY . .
+RUN cargo install --path .
 
 FROM ghcr.io/linuxserver/baseimage-ubuntu:bionic
 
 # set version label
-ARG APP=/usr/src/app
 ARG BUILD_DATE
 ARG VERSION
 ARG WIREGUARD_RELEASE
@@ -19,10 +28,6 @@ LABEL build_version="Linuxserver.io version:- ${VERSION} Build-date:- ${BUILD_DA
 LABEL maintainer="aptalca"
 
 ENV DEBIAN_FRONTEND="noninteractive"
-ENV APP_USER=appuser
-RUN groupadd $APP_USER \
-    && useradd -g $APP_USER $APP_USER \
-    && mkdir -p ${APP}
 
 RUN \
  echo "**** install dependencies ****" && \
@@ -74,16 +79,13 @@ RUN \
 	/var/lib/apt/lists/* \
 	/var/tmp/*
 
-COPY --from=builder /reseda/target/release/ ./app
-
-RUN chown -R $APP_USER:$APP_USER ${APP}
-
-USER $APP_USER 
-WORKDIR ${APP}
+COPY --from=builder ./reseda/target/release/ ./app
 
 # ports and volumes
 EXPOSE 51820/udp
 EXPOSE 80
 EXPOSE 443
 
-CMD ["sudo", "./reseda-rust"]
+RUN ls ./app
+
+CMD ["sudo", "./app/reseda-rust"]
