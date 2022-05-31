@@ -75,13 +75,15 @@ impl WireGuardConfig {
         elems.push(format!("PostUp = {}", &self.config.post_up));
         elems.push(format!("PostDown = {}", &self.config.post_down));
 
-        for (key, value) in self.clients.lock().await.iter() {
+        for (_, value) in self.clients.lock().await.iter() {
             if value.connected {
                 elems.push("\n".to_string());
                 elems.push("[Peer]".to_string());   
                 elems.push(format!("PublicKey = {}", value.public_key));
-                elems.push(format!("AllowedIPs = 192.168.69.{}", key));
-                elems.push(format!("Endpoint = {}", value.public_key));
+                // TODO: Replace allowed IP address with a dynamically assigned address
+                elems.push(format!("AllowedIPs = 192.168.69.{}/24", 2));
+                elems.push(format!("PersistentKeepalive = 25"));
+
             }
         };
 

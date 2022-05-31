@@ -1,6 +1,6 @@
 use std::borrow::BorrowMut;
 
-use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Client}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -22,36 +22,50 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
         Some(obj) => {
             println!("Provided parameters: {:?}", obj);
 
-            // Add with content from connection / query.
-            let client = Client {
-                author: obj.author.clone(),
-                public_key: obj.public_key.clone(),
-                sender: Some(client_sender),
-                maximums: Maximums { 
-                    up: 15, 
-                    down: 16 
-                },
-                connected: false
+            let client = Client::new(Some(client_sender))
+                .set_public_key(obj.public_key.clone());
+
+            match &client.is_valid() { 
+                true => {
+                    println!("Created Client: {:?}", client);
+
+                    config.lock().await.clients.lock().await.insert(obj.author.clone(), client);
+
+                    while let Some(result) = client_ws_rcv.next().await {
+                        let msg = match result {
+                            Ok(msg) => msg,
+                            Err(e) => {
+                                println!("[ERROR] Receiving message for id {}: {}", obj.author.clone(), e);
+                                break;
+                            }
+                        };
+                
+                        client_msg(&obj.author, msg, &config).await;
+                    }
+                
+                    config.lock().await.clients.lock().await.remove(&obj.author.clone());
+                }
+                false => {
+                    let owned_client = client.expose_client_sender();
+
+                    match owned_client {
+                        Option::Some(sender) => {
+                            match sender.send(Ok(Message::text("Invalid public key, expected 44 characters."))) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
+                                }
+                            }
+                        }
+                        Option::None => {
+                            println!("Client does not contain avaliable webosocket sender.")
+                        }
+                    }
+                    
+                    return;
+                }
             };
 
-            println!("Created Client: {:?}", client);
-
-            config.lock().await.clients.lock().await.insert(obj.author.clone(), client);
-
-            while let Some(result) = client_ws_rcv.next().await {
-                let msg = match result {
-                    Ok(msg) => msg,
-                    Err(e) => {
-                        println!("[ERROR] Receiving message for id {}: {}", obj.author.clone(), e);
-                        break;
-                    }
-                };
-        
-                client_msg(&obj.author, msg, &config).await;
-            }
-        
-            config.lock().await.clients.lock().await.remove(&obj.author.clone());
-        
             println!("[evt]: Client Removed Successfully");
         }
         None => {

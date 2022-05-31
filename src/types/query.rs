@@ -10,10 +10,7 @@ pub enum Query {
 
 #[derive(Debug, Deserialize)]
 pub struct StartQuery {
-    pub query_type: Query,
-    // Mapping the following two values together.
-    pub client_pub_key: String,
-    pub author: String,
+    pub query_type: Query
 }
 
 impl<'de> Deserialize<'de> for Query {

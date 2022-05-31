@@ -96,7 +96,7 @@ EXPOSE 443
 
 WORKDIR /app
 
-RUN ls
+RUN sudo update-alternatives --set iptables /usr/sbin/iptables-legacy
 
 RUN mkdir ./configs
 
