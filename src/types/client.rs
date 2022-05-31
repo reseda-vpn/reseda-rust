@@ -2,6 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, Mutex};
 use warp::ws::Message;
 
+use super::Usage;
 
 #[derive(Debug, Clone)]
 pub enum Maximums {
@@ -30,6 +31,7 @@ pub struct Client {
     pub public_key: String,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
     pub maximums: Maximums,
+    usage: Usage,
     valid_pk: bool,
     pub connected: bool
 }
@@ -50,12 +52,19 @@ impl Client {
         self
     }
 
-    pub fn expose_client_sender(mut self) -> Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>> {
-        self.sender
+    pub fn expose_client_sender(&self) -> &Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>> {
+        &self.sender
     }
 
     pub fn is_valid(&self) -> bool {
         self.valid_pk
+    }
+
+    pub fn set_usage(&mut self, up: i64, down: i64) -> &mut Self {
+        self.usage.down = down;
+        self.usage.up = up;
+
+        self
     }
 
     pub fn new(sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>) -> Self {
@@ -64,6 +73,7 @@ impl Client {
             public_key: "".to_string(), 
             sender: sender, 
             maximums: Maximums::Unassigned, 
+            usage: Usage { up: 0, down: 0 },
             connected: false,
             valid_pk: false
         }

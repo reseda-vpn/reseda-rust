@@ -34,20 +34,48 @@ async fn main() {
 
     let routes = ws_route.with(warp::cors().allow_any_origin());
 
-    tokio::spawn(async {
+    tokio::spawn(async move {
         loop {
             // Task will run ever *10s*
-            println!("Hi from second thread!");
-            let command_output = Command::new("wg")
-                // .args(["show", "reseda", "transfer"])
-                .args(["show"])
-                .output()
-                .expect("Failed to see wireguard status.");
+            match Command::new("wg")
+                .args(["show", "reseda", "transfer"])
+                .output() {
+                    Ok(output) => {
+                         match String::from_utf8(output.stdout) {
+                            Ok(mut string) => {
+                                string = string.trim().to_string();
+                                println!("Overall vector: {:?}", string);
 
-            println!("Output: {:?}", command_output);
-            let string_version: String = String::from_utf8(command_output.stdout).expect("Output was not valid utf8.");
+                                for line in string.split("\n").into_iter() {
+                                    if line == "" { break };
+                                    
+                                    let split_vector = line.trim().split("\t");
+                                    let vec: Vec<&str> = split_vector.collect();
 
-            println!("As String: {:?}", string_version);
+                                    println!("Parsing the following vector: {:?}", vec);
+
+                                    match config.lock().await.clients.lock().await.get_mut(vec[0]) {
+                                        Some(client) => {
+                                            let up = vec[1].parse::<i64>().unwrap();
+                                            let down = vec[2].parse::<i64>().unwrap();
+
+                                            client.set_usage(up, down);
+                                        },
+                                        None => {
+                                            println!("No user matched for this!")
+                                        },
+                                    }
+                                }
+                            }
+                            Err(err) => {
+                                println!("Error: {}", err)
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        println!("Failed to bring up reseda server, {:?}", err);
+                    }
+                }
 
             // End of Task
             thread::sleep(Duration::from_millis(10000));

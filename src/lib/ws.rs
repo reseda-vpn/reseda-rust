@@ -29,7 +29,23 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                 true => {
                     println!("Created Client: {:?}", client);
 
-                    config.lock().await.clients.lock().await.insert(obj.author.clone(), client);
+                    let owned_client = &client.expose_client_sender();
+
+                    match owned_client {
+                        Option::Some(sender) => {
+                            match sender.send(Ok(Message::text("PUBLIC_KEY_OK"))) {
+                                Ok(_) => {}
+                                Err(e) => {
+                                    println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
+                                }
+                            }
+                        }
+                        Option::None => {
+                            println!("Client does not contain avaliable webosocket sender.")
+                        }
+                    }
+
+                    config.lock().await.clients.lock().await.insert(obj.public_key.clone(), client);
 
                     while let Some(result) = client_ws_rcv.next().await {
                         let msg = match result {
@@ -50,7 +66,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
 
                     match owned_client {
                         Option::Some(sender) => {
-                            match sender.send(Ok(Message::text("Invalid public key, expected 44 characters."))) {
+                            match sender.send(Ok(Message::text(format!("{{ \"message\": \"Invalid public key, expected 44 characters.\", \"type\": \"error\" }}")))) {
                                 Ok(_) => {}
                                 Err(e) => {
                                     println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
@@ -108,6 +124,8 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             // Remove Client / Kill Websocket Connection, then update config.
             config.lock().await.save_config(true).await;
             println!("Done!");
+
+            return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": {{ \"server_public_key\": \"{}\" }}, \"type\": \"error\" }}", &config.lock().await.keys.public_key)).await;
         },
         Query::Open => {
             let configuration = config.lock().await;
@@ -128,6 +146,14 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             println!("Set. restarting...");
             config.lock().await.borrow_mut().save_config(true).await;
             println!("Done!");
+
+            let temp = &config.lock().await;
+
+            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"error\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
+            println!("MESSAGE: {}", message);
+            return_to_sender(&config.lock().await.clients, client_id, message).await;
+        
+            println!("Sent!");
         },
         Query::Resume => {
             println!("Resuming the socket & wireguard conn.");
@@ -136,16 +162,6 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
         _ => {
             return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
         }
-    }
-
-    let configuration = config.lock().await;
-
-    let locked = configuration.clients.lock().await;
-    match locked.get(client_id) {
-        Some(v) => {
-            println!("Client: {:?}", v);
-        }
-        None => println!("Unable to find client."),
     }
 }
 

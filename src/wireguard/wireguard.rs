@@ -1,7 +1,7 @@
-use crate::types::{WireGuardConfigFile, UsageMap, Clients, KeyState};
+use crate::types::{WireGuardConfigFile, Clients, KeyState};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex};
-use std::process::{Command};
+use std::process::{Command, Stdio};
 
 use std::fs;
 use serde_json;
@@ -12,7 +12,6 @@ pub type WireGuard = Arc<Mutex<WireGuardConfig>>;
 pub struct WireGuardConfig {
     pub config: WireGuardConfigFile,
     pub keys: KeyState,
-    pub usage_map: UsageMap,
     pub clients: Clients
 }
 
@@ -25,20 +24,10 @@ impl WireGuardConfig {
         // Generate Keys
         let keys = KeyState::generate_pair();
 
-        // let exec_process = Command::new("wg syncconf ./configs/reseda.conf <(wg-quick strip ./configs/reseda.conf)")
-        //     .stdin(Stdio::piped())
-        //     .stdout(Stdio::piped())
-        //     .spawn()
-        //     .expect("Failed to generate private key.");
-
-        // let output = exec_process.wait_with_output().expect("Failed to read stdout");
-        // println!("SYNC: {:?}", output);
-
         // Return Configuration
         WireGuardConfig {
             config: res,
             keys: keys,
-            usage_map: Arc::new(Mutex::new(HashMap::new())),
             clients: Arc::new(Mutex::new(HashMap::new()))
         }
     }
@@ -56,7 +45,7 @@ impl WireGuardConfig {
                 println!("Wrote configuration successfully.");
             }
         }
-
+        
         println!("Finished writing, now restarting...");
 
         WireGuardConfig::restart_config(self, should_restart_force_down).await;
