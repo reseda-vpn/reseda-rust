@@ -88,6 +88,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             }
 
             drop(locked);
+            drop(configuration);
 
             println!("Set. restarting...");
             // Remove Client / Kill Websocket Connection, then update config.
@@ -107,8 +108,11 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                 None => (),
             }
 
+            drop(locked);
+            drop(configuration);
+
             println!("Set. restarting...");
-            configuration.to_owned().borrow_mut().save_config(true).await;
+            config.lock().await.borrow_mut().save_config(true).await;
             println!("Done!");
         },
         Query::Resume => {

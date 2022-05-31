@@ -75,21 +75,15 @@ impl WireGuardConfig {
         elems.push(format!("PostUp = {}", &self.config.post_up));
         elems.push(format!("PostDown = {}", &self.config.post_down));
 
-        // for (key, value) in self.clients.lock().await.iter() {
-        //     if value.connected {
-        //         elems.push("\n".to_string());
-        //         elems.push("[Peer]".to_string());   
-        //         elems.push(format!("PublicKey = {}", value.public_key));
-        //         elems.push(format!("AllowedIPs = 192.168.69.{}", key));
-        //         elems.push(format!("Endpoint = {}", value.public_key));
-        //     }
-        // };
-
-        println!("{:?}", self.clients);
-
-        // for (key, value) in self.clients.lock().await.iter() {
-        //     println!("key: {} val: {:?}", key, value);
-        // }
+        for (key, value) in self.clients.lock().await.iter() {
+            if value.connected {
+                elems.push("\n".to_string());
+                elems.push("[Peer]".to_string());   
+                elems.push(format!("PublicKey = {}", value.public_key));
+                elems.push(format!("AllowedIPs = 192.168.69.{}", key));
+                elems.push(format!("Endpoint = {}", value.public_key));
+            }
+        };
 
         println!("Generated Configuration.");
 
