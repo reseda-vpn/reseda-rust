@@ -39,7 +39,8 @@ async fn main() {
             // Task will run ever *10s*
             println!("Hi from second thread!");
             let command_output = Command::new("wg")
-                .args(["show", "reseda", "transfer"])
+                // .args(["show", "reseda", "transfer"])
+                .args(["show"])
                 .output()
                 .expect("Failed to see wireguard status.");
 

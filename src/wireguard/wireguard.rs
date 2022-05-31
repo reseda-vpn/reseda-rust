@@ -44,7 +44,11 @@ impl WireGuardConfig {
     }
 
     pub async fn save_config(&mut self, should_restart_force_down: bool) -> &mut Self {
-        match fs::write("configs/reseda.conf", &self.generate_config_string().await) {
+        println!("Saving Configuration...");
+
+        let config = &self.generate_config_string().await;
+
+        match fs::write("configs/reseda.conf", config) {
             Result::Err(_) => {
                 println!("Unable to write!");
             },
@@ -53,12 +57,16 @@ impl WireGuardConfig {
             }
         }
 
+        println!("Finished writing, now restarting...");
+
         WireGuardConfig::restart_config(self, should_restart_force_down).await;
 
         self
     }
 
     pub async fn generate_config_string(&self) -> String {
+        println!("Generating Configuraion.");
+
         let mut elems = vec!["[Interface]".to_string()];
         elems.push(format!("Address = {}", &self.config.address));
         elems.push(format!("PrivateKey = {}", &self.keys.private_key.trim()));
@@ -67,15 +75,23 @@ impl WireGuardConfig {
         elems.push(format!("PostUp = {}", &self.config.post_up));
         elems.push(format!("PostDown = {}", &self.config.post_down));
 
-        for (key, value) in self.clients.lock().await.iter() {
-            if !value.connected { break; }
-            
-            elems.push("\n".to_string());
-            elems.push("[Peer]".to_string());   
-            elems.push(format!("PublicKey = {}", value.public_key));
-            elems.push(format!("AllowedIPs = 192.168.69.{}", key));
-            elems.push(format!("Endpoint = {}", value.public_key));
-        };
+        // for (key, value) in self.clients.lock().await.iter() {
+        //     if value.connected {
+        //         elems.push("\n".to_string());
+        //         elems.push("[Peer]".to_string());   
+        //         elems.push(format!("PublicKey = {}", value.public_key));
+        //         elems.push(format!("AllowedIPs = 192.168.69.{}", key));
+        //         elems.push(format!("Endpoint = {}", value.public_key));
+        //     }
+        // };
+
+        println!("{:?}", self.clients);
+
+        // for (key, value) in self.clients.lock().await.iter() {
+        //     println!("key: {} val: {:?}", key, value);
+        // }
+
+        println!("Generated Configuration.");
 
         elems.join("\n")
     }

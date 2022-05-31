@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use crate::{Clients, types::{self, Query, QueryParameters, Maximums, Client}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
@@ -71,10 +73,10 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
         }
     };
 
-    let configuration = config.lock().await;
-
     match json.query_type {
         Query::Close => {
+            let configuration = config.lock().await;
+
             println!("Closing the socket & wireguard conn.");
             let mut locked = configuration.clients.lock().await;
 
@@ -85,10 +87,16 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                 None => (),
             }
 
+            drop(locked);
+
+            println!("Set. restarting...");
             // Remove Client / Kill Websocket Connection, then update config.
             config.lock().await.save_config(true).await;
+            println!("Done!");
         },
         Query::Open => {
+            let configuration = config.lock().await;
+
             println!("Opening the socket & wireguard conn.");
             let mut locked = configuration.clients.lock().await;
 
@@ -99,7 +107,9 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                 None => (),
             }
 
-            config.lock().await.save_config(true).await;
+            println!("Set. restarting...");
+            configuration.to_owned().borrow_mut().save_config(true).await;
+            println!("Done!");
         },
         Query::Resume => {
             println!("Resuming the socket & wireguard conn.");
@@ -108,6 +118,16 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
         _ => {
             return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
         }
+    }
+
+    let configuration = config.lock().await;
+
+    let locked = configuration.clients.lock().await;
+    match locked.get(client_id) {
+        Some(v) => {
+            println!("Client: {:?}", v);
+        }
+        None => println!("Unable to find client."),
     }
 }
 
