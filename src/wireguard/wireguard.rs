@@ -1,7 +1,7 @@
 use crate::types::{WireGuardConfigFile, Clients, KeyState};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex};
-use std::process::{Command, Stdio};
+use std::process::{Command};
 
 use std::fs;
 use serde_json;
@@ -33,29 +33,21 @@ impl WireGuardConfig {
     }
 
     pub async fn save_config(&mut self, should_restart_force_down: bool) -> &mut Self {
-        println!("Saving Configuration...");
-
         let config = &self.generate_config_string().await;
 
         match fs::write("configs/reseda.conf", config) {
             Result::Err(_) => {
                 println!("Unable to write!");
             },
-            Result::Ok(_) => {
-                println!("Wrote configuration successfully.");
-            }
+            Result::Ok(_) => {}
         }
         
-        println!("Finished writing, now restarting...");
-
         WireGuardConfig::restart_config(self, should_restart_force_down).await;
 
         self
     }
 
     pub async fn generate_config_string(&self) -> String {
-        println!("Generating Configuraion.");
-
         let mut elems = vec!["[Interface]".to_string()];
         elems.push(format!("Address = {}", &self.config.address));
         elems.push(format!("PrivateKey = {}", &self.keys.private_key.trim()));
@@ -72,11 +64,8 @@ impl WireGuardConfig {
                 // TODO: Replace allowed IP address with a dynamically assigned address
                 elems.push(format!("AllowedIPs = 192.168.69.{}/24", 2));
                 elems.push(format!("PersistentKeepalive = 25"));
-
             }
         };
-
-        println!("Generated Configuration.");
 
         elems.join("\n")
     }
@@ -84,11 +73,9 @@ impl WireGuardConfig {
     pub async fn restart_config(&mut self, take_down: bool) {
         if take_down {
             let down_status = &self.config_down().await;
-            println!("Taking Down: {}", down_status);
         }
 
         let up_status = &self.config_up().await;
-        println!("Bringing Up: {}", up_status);
     }
 
     pub async fn config_up(&self) -> bool {

@@ -20,8 +20,6 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
 
     match &parameters {
         Some(obj) => {
-            println!("Provided parameters: {:?}", obj);
-
             let client = Client::new(Some(client_sender))
                 .set_public_key(obj.public_key.clone());
 
@@ -41,11 +39,13 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             }
                         }
                         Option::None => {
-                            println!("Client does not contain avaliable webosocket sender.")
+                            println!("Client does not contain available websocket sender.")
                         }
                     }
 
-                    config.lock().await.clients.lock().await.insert(obj.public_key.clone(), client);
+                    let pk = client.public_key.clone();
+
+                    config.lock().await.clients.lock().await.insert(pk.clone(), client);
 
                     while let Some(result) = client_ws_rcv.next().await {
                         let msg = match result {
@@ -56,7 +56,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             }
                         };
                 
-                        client_msg(&obj.author, msg, &config).await;
+                        client_msg(&pk, msg, &config).await;
                     }
                 
                     config.lock().await.clients.lock().await.remove(&obj.author.clone());
@@ -74,7 +74,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             }
                         }
                         Option::None => {
-                            println!("Client does not contain avaliable webosocket sender.")
+                            println!("Client does not contain available websocket sender.")
                         }
                     }
                     
@@ -106,8 +106,6 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
     match json.query_type {
         Query::Close => {
             let configuration = config.lock().await;
-
-            println!("Closing the socket & wireguard conn.");
             let mut locked = configuration.clients.lock().await;
 
             match locked.get_mut(client_id) {
@@ -120,17 +118,11 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(locked);
             drop(configuration);
 
-            println!("Set. restarting...");
             // Remove Client / Kill Websocket Connection, then update config.
             config.lock().await.save_config(true).await;
-            println!("Done!");
-
-            return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": {{ \"server_public_key\": \"{}\" }}, \"type\": \"error\" }}", &config.lock().await.keys.public_key)).await;
         },
         Query::Open => {
             let configuration = config.lock().await;
-
-            println!("Opening the socket & wireguard conn.");
             let mut locked = configuration.clients.lock().await;
 
             match locked.get_mut(client_id) {
@@ -143,17 +135,23 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(locked);
             drop(configuration);
 
-            println!("Set. restarting...");
             config.lock().await.borrow_mut().save_config(true).await;
-            println!("Done!");
 
             let temp = &config.lock().await;
-
             let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"error\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
-            println!("MESSAGE: {}", message);
-            return_to_sender(&config.lock().await.clients, client_id, message).await;
-        
-            println!("Sent!");
+
+            let locked = temp.clients.lock().await;
+
+            match locked.get(client_id) {
+                Some(v) => {
+                    if let Some(sender) = &v.sender {
+                        let _ = sender.send(Ok(Message::text(message)));
+                    }
+                }
+                None => {
+                    println!("Failed to find user with id: {}", client_id);
+                },
+            }
         },
         Query::Resume => {
             println!("Resuming the socket & wireguard conn.");

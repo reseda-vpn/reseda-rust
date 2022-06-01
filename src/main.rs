@@ -1,5 +1,6 @@
 use std::{convert::Infallible, sync::Arc, time::Duration, process::Command};
 use tokio::sync::Mutex;
+use warp::ws::Message;
 use warp::{Filter, Rejection};
 use crate::types::{QueryParameters, Clients};
 use crate::wireguard::{WireGuardConfig, WireGuard};
@@ -41,25 +42,51 @@ async fn main() {
                 .args(["show", "reseda", "transfer"])
                 .output() {
                     Ok(output) => {
-                         match String::from_utf8(output.stdout) {
+                        println!("Raw Output: {:?}", output);
+                        match String::from_utf8(output.stdout) {
                             Ok(mut string) => {
                                 string = string.trim().to_string();
-                                println!("Overall vector: {:?}", string);
-
                                 for line in string.split("\n").into_iter() {
                                     if line == "" { break };
                                     
                                     let split_vector = line.trim().split("\t");
                                     let vec: Vec<&str> = split_vector.collect();
 
-                                    println!("Parsing the following vector: {:?}", vec);
-
-                                    match config.lock().await.clients.lock().await.get_mut(vec[0]) {
+                                    match config.lock().await.clients.lock().await.get_mut(&vec[0].to_string()) {
                                         Some(client) => {
                                             let up = vec[1].parse::<i64>().unwrap();
                                             let down = vec[2].parse::<i64>().unwrap();
 
-                                            client.set_usage(up, down);
+                                            client.set_usage(&up, &down);
+                                            let message = format!("{{\"message:\": {{ \"up\": \"{}\", \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
+
+                                            match config.lock().await.clients.lock().await.get(&client.public_key) {
+                                                Some(v) => {
+                                                    if let Some(sender) = &v.sender {
+                                                        let _ = sender.send(Ok(Message::text(message)));
+                                                    }
+                                                }
+                                                None => {
+                                                    println!("Failed to find user with id: {}", client.public_key);
+                                                },
+                                            }
+
+                                            // println!("Sending update to user: {:?}", client);
+                                            // match owned_client {
+                                            //     Option::Some(sender) => {
+                                            //         match sender.send(Ok(Message::text(message))) {
+                                            //             Ok(_) => {
+                                            //                 println!("Sent update of usage to user.");
+                                            //             }
+                                            //             Err(e) => {
+                                            //                 println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
+                                            //             }
+                                            //         }
+                                            //     }
+                                            //     Option::None => {
+                                            //         println!("Client does not contain available websocket sender.")
+                                            //     }
+                                            // }
                                         },
                                         None => {
                                             println!("No user matched for this!")

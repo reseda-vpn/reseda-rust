@@ -60,9 +60,9 @@ impl Client {
         self.valid_pk
     }
 
-    pub fn set_usage(&mut self, up: i64, down: i64) -> &mut Self {
-        self.usage.down = down;
-        self.usage.up = up;
+    pub fn set_usage(&mut self, up: &i64, down: &i64) -> &mut Self {
+        self.usage.down = *down;
+        self.usage.up = *up;
 
         self
     }
