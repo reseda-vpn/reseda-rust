@@ -1,5 +1,5 @@
 {
-    "address": "0.0.0.0",
+    "address": "192.0.2.1",
     "name": "new zealand",
     "post_up": "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
     "post_down": "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",

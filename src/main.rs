@@ -17,7 +17,9 @@ async fn main() {
     let config: WireGuard = Arc::new(
         Mutex::new(
             WireGuardConfig::load_from_config("config.reseda")
-                .save_config(false).await.to_owned()
+                .save_config(true).await
+                .config_sync().await
+                .to_owned()
         )
     );
 
@@ -60,15 +62,15 @@ async fn main() {
                                             client.set_usage(&up, &down);
                                             let message = format!("{{\"message:\": {{ \"up\": \"{}\", \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
 
-                                            match config.lock().await.clients.lock().await.get(&client.public_key) {
-                                                Some(v) => {
-                                                    if let Some(sender) = &v.sender {
-                                                        let _ = sender.send(Ok(Message::text(message)));
+                                            if let Some(sender) = &client.sender {
+                                                match sender.send(Ok(Message::text(message))) {
+                                                    Ok(_) => {
+                                                        println!("Sent update of usage to user.");
+                                                    }
+                                                    Err(e) => {
+                                                        println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
                                                     }
                                                 }
-                                                None => {
-                                                    println!("Failed to find user with id: {}", client.public_key);
-                                                },
                                             }
 
                                             // println!("Sending update to user: {:?}", client);

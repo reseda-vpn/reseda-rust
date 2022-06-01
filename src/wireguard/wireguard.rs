@@ -1,4 +1,5 @@
 use crate::types::{WireGuardConfigFile, Clients, KeyState};
+use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex};
 use std::process::{Command};
@@ -32,24 +33,26 @@ impl WireGuardConfig {
         }
     }
 
-    pub async fn save_config(&mut self, should_restart_force_down: bool) -> &mut Self {
+    pub async fn save_config(&mut self, should_restart: bool) -> &mut Self {
         let config = &self.generate_config_string().await;
 
-        match fs::write("configs/reseda.conf", config) {
+        match fs::write("/etc/wireguard/reseda.conf", config) {
             Result::Err(_) => {
                 println!("Unable to write!");
             },
             Result::Ok(_) => {}
         }
         
-        WireGuardConfig::restart_config(self, should_restart_force_down).await;
+        if should_restart {
+            WireGuardConfig::restart_config(self).await;
+        }
 
         self
     }
 
     pub async fn generate_config_string(&self) -> String {
         let mut elems = vec!["[Interface]".to_string()];
-        elems.push(format!("Address = {}", &self.config.address));
+        elems.push(format!("Address = {}/24", &self.config.address));
         elems.push(format!("PrivateKey = {}", &self.keys.private_key.trim()));
         elems.push(format!("ListenPort = {}", &self.config.listen_port));
         elems.push(format!("DNS = {}", &self.config.dns));
@@ -70,18 +73,32 @@ impl WireGuardConfig {
         elems.join("\n")
     }
 
-    pub async fn restart_config(&mut self, take_down: bool) {
-        if take_down {
-            let down_status = &self.config_down().await;
+    pub async fn restart_config(&mut self) -> bool {
+        let down_status = &self.config_down().await;
+        let up_status = &self.config_up().await;
+
+        *up_status && *down_status
+    }
+
+    pub async fn config_sync(&mut self) -> &mut Self {
+        match Command::new("wg")
+            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
+            .args(["syncconf", "reseda", "<(wg-quick strip reseda)"]).output() {
+                Ok(output) => {
+                    println!("Output: {:?}", output);
+                }
+                Err(err) => {
+                    println!("Failed to bring up reseda server, {:?}", err);
+                }
         }
 
-        let up_status = &self.config_up().await;
+        self
     }
 
     pub async fn config_up(&self) -> bool {
         match Command::new("wg-quick")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
-            .args(["up", "./configs/reseda.conf"]).output() {
+            .args(["up", "reseda"]).output() {
                 Ok(output) => {
                     println!("Output: {:?}", output);
                     true
@@ -93,10 +110,10 @@ impl WireGuardConfig {
         }
     }
 
-    async fn config_down(&self) -> bool {
+    pub async fn config_down(&self) -> bool {
         match Command::new("wg-quick")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
-            .args(["down", "./configs/reseda.conf"])
+            .args(["down", "reseda"])
             .output() {
             Ok(output) => {
                 println!("Output: {:?}", output);

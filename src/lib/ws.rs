@@ -1,4 +1,4 @@
-use std::borrow::BorrowMut;
+use std::{borrow::BorrowMut, time::Instant};
 
 use crate::{Clients, types::{self, Query, QueryParameters, Client}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
@@ -119,7 +119,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(configuration);
 
             // Remove Client / Kill Websocket Connection, then update config.
-            config.lock().await.save_config(true).await;
+            config.lock().await.config_sync().await;
         },
         Query::Open => {
             let configuration = config.lock().await;
@@ -135,7 +135,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(locked);
             drop(configuration);
 
-            config.lock().await.borrow_mut().save_config(true).await;
+            config.lock().await.config_sync().await;
 
             let temp = &config.lock().await;
             let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"error\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);

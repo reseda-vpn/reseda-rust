@@ -18,7 +18,7 @@ COPY . .
 COPY --from=cacher /app/target target
 RUN cargo build --release --bin reseda-rust
 
-FROM ubuntu:latest
+FROM ubuntu:impish
 
 # set version label
 ARG WIREGUARD_RELEASE="v1.0.20210914"
@@ -99,5 +99,6 @@ WORKDIR /app
 RUN sudo update-alternatives --set iptables /usr/sbin/iptables-legacy
 
 RUN mkdir ./configs
+RUN sudo su - root
 
 CMD ["sudo", "./reseda-rust"]
