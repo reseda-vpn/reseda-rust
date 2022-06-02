@@ -128,14 +128,13 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             match locked.get_mut(client_id) {
                 Some(v) => {
                     v.set_connectivity(true);
+                    configuration.add_peer(v).await;
                 }
                 None => (),
             }
 
             drop(locked);
             drop(configuration);
-
-            config.lock().await.config_sync().await;
 
             let temp = &config.lock().await;
             let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"error\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);

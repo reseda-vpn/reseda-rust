@@ -1,4 +1,4 @@
-use crate::types::{WireGuardConfigFile, Clients, KeyState};
+use crate::types::{WireGuardConfigFile, Clients, KeyState, Client};
 use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex};
@@ -78,6 +78,19 @@ impl WireGuardConfig {
         let up_status = &self.config_up().await;
 
         *up_status && *down_status
+    }
+
+    pub async fn add_peer(&self, client: &Client) {
+        match Command::new("wg")
+            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
+            .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", "10.8.0.2", "persistent-keepalive", "25"]).output() {
+                Ok(output) => {
+                    println!("Output: {:?}", output);
+                }
+                Err(err) => {
+                    println!("Failed to bring up reseda server, {:?}", err);
+                }
+        }
     }
 
     pub async fn config_sync(&mut self) -> &mut Self {

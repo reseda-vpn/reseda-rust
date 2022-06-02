@@ -18,7 +18,7 @@ COPY . .
 COPY --from=cacher /app/target target
 RUN cargo build --release --bin reseda-rust
 
-FROM ubuntu:impish
+FROM ubuntu:latest
 
 # set version label
 ARG WIREGUARD_RELEASE="v1.0.20210914"
