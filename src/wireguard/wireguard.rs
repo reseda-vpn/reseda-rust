@@ -1,5 +1,4 @@
 use crate::types::{WireGuardConfigFile, Clients, KeyState, Client};
-use std::time::Instant;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex};
 use std::process::{Command};

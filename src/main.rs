@@ -4,7 +4,7 @@ use warp::ws::Message;
 use warp::{Filter, Rejection};
 use crate::types::{QueryParameters, Clients};
 use crate::wireguard::{WireGuardConfig, WireGuard};
-use std::thread;
+use futures_timer::Delay;
 
 mod lib;
 mod types;
@@ -68,7 +68,7 @@ async fn main() {
                                                         println!("Sent update of usage to user.");
                                                     }
                                                     Err(e) => {
-                                                        println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
+                                                        println!("Failed to send message: \'INVALID_SENDER\', reason: {}", e)
                                                     }
                                                 }
                                             }
@@ -107,7 +107,8 @@ async fn main() {
                 }
 
             // End of Task
-            thread::sleep(Duration::from_millis(10000));
+            Delay::new(Duration::from_millis(1000)).await;
+            // thread::sleep(Duration::from_millis(10000));
         }
     });
 
