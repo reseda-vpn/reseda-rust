@@ -109,6 +109,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             match locked.get_mut(client_id) {
                 Some(v) => {
                     v.set_connectivity(false);
+                    configuration.remove_peer(v).await;
                 }
                 None => (),
             }
@@ -116,8 +117,21 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(locked);
             drop(configuration);
 
-            // Remove Client / Kill Websocket Connection, then update config.
-            config.lock().await.config_sync().await;
+            let temp = &config.lock().await;
+            let message = format!("{{ \"message\": \"Removed client successfully.\", \"type\": \"success\" }}");
+
+            let locked = temp.clients.lock().await;
+
+            match locked.get(client_id) {
+                Some(v) => {
+                    if let Some(sender) = &v.sender {
+                        let _ = sender.send(Ok(Message::text(message)));
+                    }
+                }
+                None => {
+                    println!("Failed to find user with id: {}", client_id);
+                },
+            }
         },
         Query::Open => {
             let configuration = config.lock().await;
@@ -135,7 +149,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(configuration);
 
             let temp = &config.lock().await;
-            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"error\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
+            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"success\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
 
             let locked = temp.clients.lock().await;
 

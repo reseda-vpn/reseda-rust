@@ -78,6 +78,10 @@ impl WireGuardConfig {
 
         *up_status && *down_status
     }
+    
+    pub async fn remove_peer(&self, client: &Client) {
+
+    }
 
     pub async fn add_peer(&self, client: &Client) {
         match Command::new("wg")
@@ -92,6 +96,7 @@ impl WireGuardConfig {
         }
     }
 
+    #[deprecated = "OLD_CODE"]
     pub async fn config_sync(&mut self) -> &mut Self {
         match Command::new("wg")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
