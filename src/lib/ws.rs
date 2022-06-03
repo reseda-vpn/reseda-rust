@@ -1,4 +1,4 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Client}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Client, Maximums}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -44,6 +44,19 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                     let pk = client.public_key.clone();
 
                     config.lock().await.clients.lock().await.insert(pk.clone(), client);
+
+                    // Spawn second thread to do Query to find maximums and set them.
+                    // [HERE]
+                    // tokio::spawn(async {
+                    //     // Fetch information and set...
+                    //     match config.lock().await.clients.lock().await.get_mut(&pk) {
+                    //         Some(client) => {
+                    //             client.set_tier(Maximums::Free);
+                    //         },
+                    //         None => {},
+                    //     }
+                    // });
+                    // [END]
 
                     while let Some(result) = client_ws_rcv.next().await {
                         let msg = match result {
@@ -118,7 +131,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(configuration);
 
             let temp = &config.lock().await;
-            let message = format!("{{ \"message\": \"Removed client successfully.\", \"type\": \"success\" }}");
+            let message = format!("{{ \"message\": \"Removed client successfully.\", \"type\": \"message\" }}");
 
             let locked = temp.clients.lock().await;
 

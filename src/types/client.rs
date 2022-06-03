@@ -4,7 +4,7 @@ use warp::ws::Message;
 
 use super::Usage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Maximums {
     Free,
     Supporter,
@@ -16,11 +16,21 @@ pub enum Maximums {
 impl Maximums {
     pub fn to_value(&self) -> i128 {
         match self {
+            // 5GB
             Self::Free => 5368709120,
+
+            // 50GB
             Self::Supporter => 53687091200,
+
+            // -1 means IGNORE for the time, such that it does not have a data cap.
             Self::Basic => -1,
             Self::Pro => -1,
-            Self::Unassigned => 0
+
+            // This is the state that occurs when a user connects but is awaiting thier tier to be assigned.
+            // We give them a small allowance first, without having a verified account, this is small enough
+            // that it cant be abused, but is large enough that it can swallow an up to 500ms wait time 
+            // for the query response in data usage. (5mb of information bandwith)
+            Self::Unassigned => 5000000
         } 
     }
 }
@@ -60,9 +70,26 @@ impl Client {
         self.valid_pk
     }
 
-    pub fn set_usage(&mut self, up: &i64, down: &i64) -> &mut Self {
+    pub fn set_usage(&mut self, up: &i128, down: &i128) -> bool {
         self.usage.down = *down;
         self.usage.up = *up;
+
+        if self.maximums == Maximums::Pro || self.maximums == Maximums::Basic {
+            return true;
+        }
+
+        // If plan is not PRO or BASIC, do The following to check if they have exceeded thier bandwith allocation.
+        let max: i128 = self.maximums.to_value();
+
+        if max > *up && max > *down {
+            false
+        }else {
+            true
+        }
+    }
+
+    pub fn set_tier(&mut self, tier: Maximums) -> &mut Self {
+        self.maximums = tier;
 
         self
     }

@@ -56,19 +56,25 @@ async fn main() {
 
                                     match config.lock().await.clients.lock().await.get_mut(&vec[0].to_string()) {
                                         Some(client) => {
-                                            let up = vec[1].parse::<i64>().unwrap();
-                                            let down = vec[2].parse::<i64>().unwrap();
+                                            let up = vec[1].parse::<i128>().unwrap();
+                                            let down = vec[2].parse::<i128>().unwrap();
 
-                                            client.set_usage(&up, &down);
-                                            let message = format!("{{\"message:\": {{ \"up\": \"{}\", \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
+                                            match client.set_usage(&up, &down) {
+                                                true => {
+                                                    println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
+                                                }
+                                                false => {
+                                                    let message = format!("{{\"message:\": {{ \"up\": \"{}\", \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
 
-                                            if let Some(sender) = &client.sender {
-                                                match sender.send(Ok(Message::text(message))) {
-                                                    Ok(_) => {
-                                                        println!("Sent update of usage to user.");
-                                                    }
-                                                    Err(e) => {
-                                                        println!("Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                    if let Some(sender) = &client.sender {
+                                                        match sender.send(Ok(Message::text(message))) {
+                                                            Ok(_) => {
+                                                                println!("Sent update of usage to user.");
+                                                            }
+                                                            Err(e) => {
+                                                                println!("Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
