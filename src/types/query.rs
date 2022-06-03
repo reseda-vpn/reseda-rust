@@ -4,7 +4,6 @@ use serde::{Deserialize, Deserializer};
 pub enum Query {
     Open,
     Close,
-    Resume,
     None
 }
 
@@ -22,7 +21,6 @@ impl<'de> Deserialize<'de> for Query {
         let state = match s.as_str() {
             "open" => Query::Open,
             "close" => Query::Close,
-            "resume" => Query::Resume,
             _ => Query::None,
         };
         Ok(state)

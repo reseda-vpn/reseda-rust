@@ -164,10 +164,6 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                 },
             }
         },
-        Query::Resume => {
-            println!("Resuming the socket & wireguard conn.");
-            // No need to adjust config if resuming...
-        },
         _ => {
             return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
         }

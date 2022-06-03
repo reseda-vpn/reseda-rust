@@ -8,7 +8,7 @@ TODO:
 
 ✅ Connect Users
 ✅ Disconnect Users
-- Resume Users & Hold Connection (Give them updates on usage)
+✅ Resume Users & Hold Connection (Give them updates on usage)
 
 - Disconnect Exceeded Users
 
