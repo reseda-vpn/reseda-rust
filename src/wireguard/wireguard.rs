@@ -80,7 +80,16 @@ impl WireGuardConfig {
     }
     
     pub async fn remove_peer(&self, client: &Client) {
-
+        match Command::new("wg")
+            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
+            .args(["set", "reseda", "peer", &client.public_key, "remove"]).output() {
+                Ok(output) => {
+                    println!("Output: {:?}", output);
+                }
+                Err(err) => {
+                    println!("Failed to bring up reseda server, {:?}", err);
+                }
+        }
     }
 
     pub async fn add_peer(&self, client: &Client) {
@@ -96,7 +105,6 @@ impl WireGuardConfig {
         }
     }
 
-    #[deprecated = "OLD_CODE"]
     pub async fn config_sync(&mut self) -> &mut Self {
         match Command::new("wg")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")

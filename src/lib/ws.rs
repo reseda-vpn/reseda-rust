@@ -29,7 +29,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
 
                     match owned_client {
                         Option::Some(sender) => {
-                            match sender.send(Ok(Message::text("PUBLIC_KEY_OK"))) {
+                            match sender.send(Ok(Message::text(format!("{{ \"message\": \"PUBLIC_KEY_OK\", \"type\": \"message\" }}")))) {
                                 Ok(_) => {}
                                 Err(e) => {
                                     println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
@@ -149,7 +149,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(configuration);
 
             let temp = &config.lock().await;
-            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"success\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
+            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"message\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
 
             let locked = temp.clients.lock().await;
 

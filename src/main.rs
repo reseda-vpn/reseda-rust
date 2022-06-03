@@ -72,23 +72,6 @@ async fn main() {
                                                     }
                                                 }
                                             }
-
-                                            // println!("Sending update to user: {:?}", client);
-                                            // match owned_client {
-                                            //     Option::Some(sender) => {
-                                            //         match sender.send(Ok(Message::text(message))) {
-                                            //             Ok(_) => {
-                                            //                 println!("Sent update of usage to user.");
-                                            //             }
-                                            //             Err(e) => {
-                                            //                 println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
-                                            //             }
-                                            //         }
-                                            //     }
-                                            //     Option::None => {
-                                            //         println!("Client does not contain available websocket sender.")
-                                            //     }
-                                            // }
                                         },
                                         None => {
                                             println!("No user matched for this!")
@@ -108,7 +91,6 @@ async fn main() {
 
             // End of Task
             Delay::new(Duration::from_millis(1000)).await;
-            // thread::sleep(Duration::from_millis(10000));
         }
     });
 
