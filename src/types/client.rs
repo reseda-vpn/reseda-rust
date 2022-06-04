@@ -26,10 +26,10 @@ impl Maximums {
             Self::Basic => -1,
             Self::Pro => -1,
 
-            // This is the state that occurs when a user connects but is awaiting thier tier to be assigned.
+            // This is the state that occurs when a user connects but is awaiting their tier to be assigned.
             // We give them a small allowance first, without having a verified account, this is small enough
             // that it cant be abused, but is large enough that it can swallow an up to 500ms wait time 
-            // for the query response in data usage. (5mb of information bandwith)
+            // for the query response in data usage. (5mb of information bandwidth)
             Self::Unassigned => 5000000
         } 
     }
@@ -58,6 +58,12 @@ impl Client {
             self.public_key = public_key.replace(" ", "+");
             self.valid_pk = true;
         }
+
+        self
+    }
+
+    pub fn set_author(mut self, author_id: String) -> Self {
+        self.author = author_id;
 
         self
     }

@@ -1,5 +1,7 @@
 use crate::types::{WireGuardConfigFile, Clients, KeyState, Client};
 use std::{collections::HashMap, sync::Arc};
+use sqlx::mysql::MySqlPoolOptions;
+use sqlx::{Pool, MySql};
 use tokio::sync::{Mutex};
 use std::process::{Command};
 
@@ -12,11 +14,12 @@ pub type WireGuard = Arc<Mutex<WireGuardConfig>>;
 pub struct WireGuardConfig {
     pub config: WireGuardConfigFile,
     pub keys: KeyState,
-    pub clients: Clients
+    pub clients: Clients,
+    pub pool: Pool<MySql>
 }
 
 impl WireGuardConfig {
-    pub fn load_from_config(file_path: &str) -> Self {
+    pub async fn load_from_config(file_path: &str) -> Self {
         // Load local config file as string
         let data = fs::read_to_string(file_path).expect("Unable to read file");
         // Convert to JSON
@@ -24,11 +27,24 @@ impl WireGuardConfig {
         // Generate Keys
         let keys = KeyState::generate_pair();
 
+        let pool = match MySqlPoolOptions::new()
+            .max_connections(5)
+            .connect(&res.database_url).await {
+                Ok(pool) => {
+                    println!("[service] sqlx::success Successfully started pool.");
+                    pool
+                },
+                Err(error) => {
+                    panic!("[service] sqlx::error Failed to initialize SQLX pool. Reason: {}", error);
+                }
+        };
+
         // Return Configuration
         WireGuardConfig {
             config: res,
             keys: keys,
-            clients: Arc::new(Mutex::new(HashMap::new()))
+            clients: Arc::new(Mutex::new(HashMap::new())),
+            pool: pool
         }
     }
 
@@ -105,7 +121,7 @@ impl WireGuardConfig {
         }
     }
 
-    pub async fn config_sync(&mut self) -> &mut Self {
+    pub fn config_sync(&mut self) -> &mut Self {
         match Command::new("wg")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
             .args(["syncconf", "reseda", "<(wg-quick strip reseda)"]).output() {

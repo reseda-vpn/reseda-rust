@@ -3,4 +3,7 @@
 /.vscode
 
 *.pem
-todo.md
+*.md
+*.env
+*.reseda
+*.reseda

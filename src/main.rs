@@ -16,14 +16,14 @@ type Result<T> = std::result::Result<T, Rejection>;
 async fn main() {
     let config: WireGuard = Arc::new(
         Mutex::new(
-            WireGuardConfig::load_from_config("config.reseda")
+            WireGuardConfig::load_from_config("config.reseda").await
                 .save_config(true).await
-                .config_sync().await
+                // .config_sync().await
                 .to_owned()
         )
     );
 
-    println!("[SERVICE] ws_handler::start");
+    println!("[service] ws_handler::starting");
 
     let opt_query = warp::query::<QueryParameters>()
         .map(Some)
@@ -44,7 +44,6 @@ async fn main() {
                 .args(["show", "reseda", "transfer"])
                 .output() {
                     Ok(output) => {
-                        println!("Raw Output: {:?}", output);
                         match String::from_utf8(output.stdout) {
                             Ok(mut string) => {
                                 string = string.trim().to_string();
@@ -69,7 +68,7 @@ async fn main() {
                                                     if let Some(sender) = &client.sender {
                                                         match sender.send(Ok(Message::text(message))) {
                                                             Ok(_) => {
-                                                                println!("Sent update of usage to user.");
+                                                                println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(), up, down);
                                                             }
                                                             Err(e) => {
                                                                 println!("Failed to send message: \'INVALID_SENDER\', reason: {}", e)

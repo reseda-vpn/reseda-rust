@@ -1,4 +1,4 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Client, Maximums}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Client}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -19,12 +19,11 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
     match &parameters {
         Some(obj) => {
             let client = Client::new(Some(client_sender))
-                .set_public_key(obj.public_key.clone());
+                .set_public_key(obj.public_key.clone())
+                .set_author(obj.author.clone());
 
             match &client.is_valid() { 
                 true => {
-                    println!("Created Client: {:?}", client);
-
                     let owned_client = &client.expose_client_sender();
 
                     match owned_client {
@@ -42,22 +41,61 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                     }
 
                     let pk = client.public_key.clone();
+                    let author_clone = client.author.clone(); //format!("\'{}\'", client.author.clone().trim_matches('\"'));
 
                     config.lock().await.clients.lock().await.insert(pk.clone(), client);
 
-                    // Spawn second thread to do Query to find maximums and set them.
-                    // [HERE]
-                    // tokio::spawn(async {
-                    //     // Fetch information and set...
-                    //     match config.lock().await.clients.lock().await.get_mut(&pk) {
-                    //         Some(client) => {
-                    //             client.set_tier(Maximums::Free);
-                    //         },
-                    //         None => {},
-                    //     }
-                    // });
-                    // [END]
+                    let maximums = match config.lock().await.pool.begin().await {
+                        Ok(mut transaction) => {
+                            println!("Querying for a user with uid: {:?}", author_clone);
+                            //r#"SELECT tier FROM `Account` WHERE userId = '?';"#, client.author.clone()
+                            match sqlx::query!("select tier from Account where userId = ?", author_clone)
+                                .fetch_one(&mut transaction)
+                                .await {
+                                    Ok(query) => {
+                                        let tier = String::from_utf8(query.tier);
+                                        
+                                        match tier {
+                                            Ok(t) => { 
+                                                let tier_string = t.as_str();
 
+                                                let argument_tier = match tier_string {
+                                                    "FREE" => types::Maximums::Free,
+                                                    "PRO" => types::Maximums::Pro,
+                                                    "BASIC" => types::Maximums::Basic,
+                                                    "SUPPORTER" => types::Maximums::Supporter,
+                                                    _ => types::Maximums::Unassigned
+                                                };
+
+                                                argument_tier
+                                            },
+                                            Err(_) => {
+                                                println!("Unable to parse");
+                                                types::Maximums::Unassigned
+                                            },
+                                        }
+                                    },
+                                    Err(err) => {
+                                        println!("Unable to perform request, user will remain unassigned. Reason: {}", err);
+                                        types::Maximums::Unassigned
+                                    }
+                            }
+                        },
+                        Err(err) => {
+                            println!("Unable to perform request, user will remain unassigned. Reason: {}", err);
+                            types::Maximums::Unassigned
+                        }
+                    };
+
+                    println!("Query Finished, Returned Tier: {:?}", maximums);
+
+                    match config.lock().await.clients.lock().await.get_mut(&pk) {
+                        Some(client) => {
+                            client.set_tier(maximums);
+                        }
+                        None => {}
+                    }
+                    
                     while let Some(result) = client_ws_rcv.next().await {
                         let msg = match result {
                             Ok(msg) => msg,

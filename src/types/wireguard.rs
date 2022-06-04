@@ -9,7 +9,8 @@ pub struct WireGuardConfigFile {
     pub post_up: String,
     pub post_down: String,
     pub listen_port: i32,
-    pub dns: String
+    pub dns: String,
+    pub database_url: String
 }
 
 #[derive(Serialize, Deserialize, Clone)]

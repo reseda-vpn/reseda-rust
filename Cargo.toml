@@ -16,3 +16,11 @@ uuid = { version = "0.8.2", features = ["serde", "v4"] }
 chrono = "0.4.19"
 sudo = "0.5"
 futures-timer="3.0.2"
+sqlx = { version = "0.5.5", features = [ "mysql", "runtime-tokio-rustls", "macros" ] }
+async-std = { version = "1.9", features = [ "attributes" ] }
+
+[dependencies.openssl]
+version = "0.10.29"
+features = [
+    "vendored"
+]
