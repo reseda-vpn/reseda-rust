@@ -60,8 +60,16 @@ async fn main() {
                                             match client.set_usage(&up, &down) {
                                                 true => {
                                                     println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
-                                                    client.set_connectivity(Connection::Disconnected);
-                                                    config.lock().await.remove_peer(&client).await;
+                                                    match &client.connected {
+                                                        Connection::Disconnected => {
+                                                            println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...")
+                                                        },
+                                                        Connection::Connected(connection) => {
+                                                            config.lock().await.free_slot(connection);
+                                                            client.set_connectivity(Connection::Disconnected);
+                                                            config.lock().await.remove_peer(&client).await;
+                                                        },
+                                                    }
                                                 }
                                                 false => {
                                                     let message = format!("{{\"message:\": {{ \"up\": \"{}\", \"down\": {} }}, \"type\": \"update\"}}", &up, &down);

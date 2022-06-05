@@ -12,6 +12,6 @@ TODO:
 
 ✅ Resume Users & Hold Connection (Give them updates on usage)
 
-- Replace allowed IP address with a dynamically assigned address
+✅ Replace allowed IP address with a dynamically assigned address
 
 - Get HTTPS working

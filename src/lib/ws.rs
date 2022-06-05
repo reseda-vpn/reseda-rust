@@ -1,4 +1,4 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Client, Connection, Reservation}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Client, Connection, Reservation, Slot}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -154,18 +154,37 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
 
     match json.query_type {
         Query::Close => {
-            let configuration = config.lock().await;
+            let mut configuration = config.lock().await;
             let mut locked = configuration.clients.lock().await;
 
-            match locked.get_mut(client_id) {
-                Some(v) => {
-                    v.set_connectivity(Connection::Disconnected);
-                    configuration.remove_peer(v).await;
+            let connection_to_drop = match locked.get_mut(client_id) {
+                Some(client) => {
+                    match &client.connected {
+                        Connection::Disconnected => {
+                            println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
+                            Slot::Prospective
+                        }
+                        Connection::Connected(connection) => {
+                            client.to_owned().set_connectivity(Connection::Disconnected);
+                            configuration.remove_peer(&client).await;
+
+                            Slot::Open(connection.clone())
+                        }
+                    }
                 }
-                None => (),
-            }
+                None => {
+                    Slot::Prospective
+                },
+            };
 
             drop(locked);
+            match connection_to_drop {
+                Slot::Open(drop) => {
+                    println!("Freeing up now unused slot; {:?}", drop);
+                    configuration.free_slot(&drop);
+                },
+                Slot::Prospective => println!("Could not drop"),
+            }
             drop(configuration);
 
             let temp = &config.lock().await;
@@ -188,10 +207,13 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             let mut configuration = config.lock().await;
 
             let slot = configuration.find_open_slot();
+            println!("Found slot: {:?}", slot);
+
             let reserved_slot = match slot {
                 types::Slot::Open(open_slot) => configuration.reserve_slot(open_slot),
                 types::Slot::Prospective => Reservation::Imissable,
             };
+            println!("Reserved Slot: {:?}", reserved_slot);
 
             match reserved_slot {
                 Reservation::Held(valid_slot) => {
@@ -202,11 +224,13 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                         Some(v) => {
                             v.set_connectivity(Connection::Connected(valid_slot));
                             configuration.add_peer(v).await;
+
+                            println!("Success, Created Peer {:?} on slot {:?}", v.public_key, v.connected);
                         }
                         None => {
                             drop(lock);
                             // Found and reserved slot, however was not able to get lock on client, so we free the slot as it is not assigned to any user.
-                            configuration.free_slot(valid_slot);
+                            configuration.free_slot(&valid_slot);
                         },
                     }
                 }

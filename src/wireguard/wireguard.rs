@@ -1,4 +1,4 @@
-use crate::types::{WireGuardConfigFile, Clients, KeyState, Client, Host, Reservation, Slot};
+use crate::types::{WireGuardConfigFile, Clients, KeyState, Client, Host, Reservation, Slot, Connection};
 use std::collections::BTreeMap;
 use std::{collections::HashMap, sync::Arc};
 use sqlx::mysql::MySqlPoolOptions;
@@ -56,10 +56,10 @@ impl WireGuardConfig {
     pub fn init_registry(highest: u8) -> BTreeMap<u8, BTreeMap<u8, bool>> {
         let mut registry: BTreeMap<u8, BTreeMap<u8, bool>> = BTreeMap::new();
 
-        for i in 0..highest {
+        for i in 2..highest {
             let mut new_map = BTreeMap::new();
 
-            for k in 0..255 {
+            for k in 1..255 {
                 new_map.insert(k, false);
             }
 
@@ -83,8 +83,8 @@ impl WireGuardConfig {
             WireGuardConfig::restart_config(self).await;
         }
 
-        match self.reserve_slot(Host { a: 0, b: 0 }) {
-            Reservation::Held(reservation) => println!("Slot held. {:?}", reservation),
+        match self.reserve_slot(Host { a: 2, b: 1 }) {
+            Reservation::Held(reservation) => println!("Default Server Slot held; {:?}", reservation),
             Reservation::Detached(detached) => println!("Slot debounced as detached. {:?}", detached),
             Reservation::Imissable => println!("Slot returned IMISSABLE"),
         }
@@ -140,16 +140,24 @@ impl WireGuardConfig {
     }
 
     pub async fn add_peer(&self, client: &Client) {
-        match Command::new("wg")
-            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
-            .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", "10.8.0.2/24", "persistent-keepalive", "25"]).output() {
-                Ok(output) => {
-                    println!("Output: {:?}", output);
+        match &client.connected {
+            Connection::Disconnected => {
+                println!("[err]: Attempted to add peer that was DISCONNECTED.")
+            },
+            Connection::Connected(connection) => {
+                match Command::new("wg")
+                    .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
+                    .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", &format!("10.8.{}.{}", connection.a, connection.b), "persistent-keepalive", "25"]).output() {
+                        Ok(output) => {
+                            println!("Output: {:?}", output);
+                        }
+                        Err(err) => {
+                            println!("Failed to bring up reseda server, {:?}", err);
+                        }
                 }
-                Err(err) => {
-                    println!("Failed to bring up reseda server, {:?}", err);
-                }
+            },
         }
+        
     }
 
     pub async fn config_up(&self) -> bool {
@@ -184,8 +192,8 @@ impl WireGuardConfig {
     }
 
     pub fn find_open_slot(&self) -> Slot {
-        for i in 0..self.registry.len() as u8 {
-            for k in 0..255 {
+        for i in 2..self.registry.len() as u8 {
+            for k in 1..255 {
                 match self.registry.get(&i) {
                     Some(a_val) => {
                         match a_val.get(&k) {
@@ -240,7 +248,7 @@ impl WireGuardConfig {
         }
     }
 
-    pub fn free_slot(&mut self, freeing_slot: Host) {
+    pub fn free_slot(&mut self, freeing_slot: &Host) {
         self.registry.entry(freeing_slot.a)
             .and_modify(| val | { 
                 val.entry(freeing_slot.b)
