@@ -96,7 +96,6 @@ ADD key.pem ./app
 
 # ports and volumes
 EXPOSE 51820/udp
-EXPOSE 8000
 EXPOSE 80
 EXPOSE 443
 

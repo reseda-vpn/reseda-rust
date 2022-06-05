@@ -112,7 +112,7 @@ async fn main() {
         .tls()
         .cert_path("cert.pem")
         .key_path("key.pem")
-        .run(([0, 0, 0, 0], 433)).await;
+        .run(([0, 0, 0, 0], 443)).await;
 }
 
 fn with_config(config: WireGuard) -> impl Filter<Extract = (WireGuard,), Error = Infallible> + Clone {
