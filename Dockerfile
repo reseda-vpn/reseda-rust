@@ -86,7 +86,13 @@ RUN \
 	/var/tmp/*
 
 COPY --from=builder /app/target/release/ ./app
+
+# Add Configuration File
 ADD config.reseda ./app 
+
+# Add Certificates REQURED for HTTPS
+ADD cert.pem ./app 
+ADD key.pem ./app
 
 # ports and volumes
 EXPOSE 51820/udp

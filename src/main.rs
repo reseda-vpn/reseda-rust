@@ -109,10 +109,10 @@ async fn main() {
     });
 
     warp::serve(routes)
-        // .tls()
-        // .cert_path("cert.pem")
-        // .key_path("key.pem")
-        .run(([0, 0, 0, 0], 8000)).await;
+        .tls()
+        .cert_path("cert.pem")
+        .key_path("key.pem")
+        .run(([0, 0, 0, 0], 433)).await;
 }
 
 fn with_config(config: WireGuard) -> impl Filter<Extract = (WireGuard,), Error = Infallible> + Clone {
