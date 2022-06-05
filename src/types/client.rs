@@ -35,19 +35,52 @@ impl Maximums {
     }
 }
 
+// By choosing integers with the propper bounds, we cannot go out of bounds of the IP scope.
+#[derive(Debug, Clone)]
+pub struct Host {
+    pub a: u8,
+    pub b: u8
+}
+
+#[derive(Debug, Clone)]
+pub enum Reservation {
+    Held(Host),
+    Detached(Host),
+    Imissable 
+}
+
+#[derive(Debug, Clone)]
+pub enum Slot {
+    Open(Host),
+    Prospective
+}
+
+// #[derive(Debug, Clone)]
+// struct Connection {
+//     pub connected: bool,
+//     pub host: Host
+// }
+
+#[derive(Debug, Clone)]
+pub enum Connection {
+    Disconnected,
+    Connected(Host)
+}
+
 #[derive(Debug, Clone)]
 pub struct Client {
     pub author: String,
     pub public_key: String,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
     pub maximums: Maximums,
+    pub connected: Connection,
+
     usage: Usage,
     valid_pk: bool,
-    pub connected: bool
 }
 
 impl Client {
-    pub fn set_connectivity(&mut self, new_status: bool) -> &mut Self {
+    pub fn set_connectivity(&mut self, new_status: Connection) -> &mut Self {
         self.connected = new_status;
 
         self
@@ -106,8 +139,11 @@ impl Client {
             public_key: "".to_string(), 
             sender: sender, 
             maximums: Maximums::Unassigned, 
-            usage: Usage { up: 0, down: 0 },
-            connected: false,
+            usage: Usage { 
+                up: 0, 
+                down: 0 
+            },
+            connected: Connection::Disconnected,
             valid_pk: false
         }
     }

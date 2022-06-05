@@ -1,4 +1,4 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Client}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Client, Connection, Reservation}, wireguard::{WireGuard}};
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -159,7 +159,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
 
             match locked.get_mut(client_id) {
                 Some(v) => {
-                    v.set_connectivity(false);
+                    v.set_connectivity(Connection::Disconnected);
                     configuration.remove_peer(v).await;
                 }
                 None => (),
@@ -185,18 +185,39 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             }
         },
         Query::Open => {
-            let configuration = config.lock().await;
-            let mut locked = configuration.clients.lock().await;
+            let mut configuration = config.lock().await;
 
-            match locked.get_mut(client_id) {
-                Some(v) => {
-                    v.set_connectivity(true);
-                    configuration.add_peer(v).await;
+            let slot = configuration.find_open_slot();
+            let reserved_slot = match slot {
+                types::Slot::Open(open_slot) => configuration.reserve_slot(open_slot),
+                types::Slot::Prospective => Reservation::Imissable,
+            };
+
+            match reserved_slot {
+                Reservation::Held(valid_slot) => {
+                    let mut lock = configuration.clients.lock().await;
+                    let client = lock.get_mut(client_id);
+
+                    match client {
+                        Some(v) => {
+                            v.set_connectivity(Connection::Connected(valid_slot));
+                            configuration.add_peer(v).await;
+                        }
+                        None => {
+                            drop(lock);
+                            // Found and reserved slot, however was not able to get lock on client, so we free the slot as it is not assigned to any user.
+                            configuration.free_slot(valid_slot);
+                        },
+                    }
                 }
-                None => (),
+                Reservation::Imissable => {
+                    println!("Unable to add user to slot");
+                }
+                Reservation::Detached(_) => {
+                    println!("Unable to add user to slot");
+                },
             }
 
-            drop(locked);
             drop(configuration);
 
             let temp = &config.lock().await;

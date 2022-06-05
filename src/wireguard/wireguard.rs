@@ -1,4 +1,5 @@
-use crate::types::{WireGuardConfigFile, Clients, KeyState, Client};
+use crate::types::{WireGuardConfigFile, Clients, KeyState, Client, Host, Reservation, Slot};
+use std::collections::BTreeMap;
 use std::{collections::HashMap, sync::Arc};
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Pool, MySql};
@@ -15,7 +16,8 @@ pub struct WireGuardConfig {
     pub config: WireGuardConfigFile,
     pub keys: KeyState,
     pub clients: Clients,
-    pub pool: Pool<MySql>
+    pub pool: Pool<MySql>,
+    pub registry: BTreeMap<u8, BTreeMap<u8, bool>>
 }
 
 impl WireGuardConfig {
@@ -26,6 +28,8 @@ impl WireGuardConfig {
         let res: WireGuardConfigFile = serde_json::from_str(&data).expect("Unable to parse");
         // Generate Keys
         let keys = KeyState::generate_pair();
+        // Initialize IP Registry (maps 65025 possible IP addresses)
+        let registry = WireGuardConfig::init_registry(12);
 
         let pool = match MySqlPoolOptions::new()
             .max_connections(5)
@@ -44,8 +48,25 @@ impl WireGuardConfig {
             config: res,
             keys: keys,
             clients: Arc::new(Mutex::new(HashMap::new())),
-            pool: pool
+            pool: pool,
+            registry: registry
         }
+    }
+
+    pub fn init_registry(highest: u8) -> BTreeMap<u8, BTreeMap<u8, bool>> {
+        let mut registry: BTreeMap<u8, BTreeMap<u8, bool>> = BTreeMap::new();
+
+        for i in 0..highest {
+            let mut new_map = BTreeMap::new();
+
+            for k in 0..255 {
+                new_map.insert(k, false);
+            }
+
+            registry.insert(i, new_map);
+        }
+
+        registry
     }
 
     pub async fn save_config(&mut self, should_restart: bool) -> &mut Self {
@@ -62,6 +83,12 @@ impl WireGuardConfig {
             WireGuardConfig::restart_config(self).await;
         }
 
+        match self.reserve_slot(Host { a: 0, b: 0 }) {
+            Reservation::Held(reservation) => println!("Slot held. {:?}", reservation),
+            Reservation::Detached(detached) => println!("Slot debounced as detached. {:?}", detached),
+            Reservation::Imissable => println!("Slot returned IMISSABLE"),
+        }
+
         self
     }
 
@@ -74,16 +101,20 @@ impl WireGuardConfig {
         elems.push(format!("PostUp = {}", &self.config.post_up));
         elems.push(format!("PostDown = {}", &self.config.post_down));
 
-        for (_, value) in self.clients.lock().await.iter() {
-            if value.connected {
-                elems.push("\n".to_string());
-                elems.push("[Peer]".to_string());   
-                elems.push(format!("PublicKey = {}", value.public_key));
-                // TODO: Replace allowed IP address with a dynamically assigned address
-                elems.push(format!("AllowedIPs = 192.168.69.{}/24", 2));
-                elems.push(format!("PersistentKeepalive = 25"));
-            }
-        };
+        // Only used on initialization, no peers should be added this way.
+        // for (_, value) in self.clients.lock().await.iter() {
+        //     match value.connected {
+        //         Connection::Connected(_) => {
+        //             elems.push("\n".to_string());
+        //             elems.push("[Peer]".to_string());   
+        //             elems.push(format!("PublicKey = {}", value.public_key));
+        //             // TODO: Replace allowed IP address with a dynamically assigned address
+        //             elems.push(format!("AllowedIPs = 192.168.69.{}/24", 2));
+        //             elems.push(format!("PersistentKeepalive = 25"));
+        //         }
+        //         Connection::Disconnected => {}
+        //     }
+        // };
 
         elems.join("\n")
     }
@@ -111,7 +142,7 @@ impl WireGuardConfig {
     pub async fn add_peer(&self, client: &Client) {
         match Command::new("wg")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
-            .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", "10.8.0.2", "persistent-keepalive", "25"]).output() {
+            .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", "10.8.0.2/24", "persistent-keepalive", "25"]).output() {
                 Ok(output) => {
                     println!("Output: {:?}", output);
                 }
@@ -119,21 +150,6 @@ impl WireGuardConfig {
                     println!("Failed to bring up reseda server, {:?}", err);
                 }
         }
-    }
-
-    pub fn config_sync(&mut self) -> &mut Self {
-        match Command::new("wg")
-            .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
-            .args(["syncconf", "reseda", "<(wg-quick strip reseda)"]).output() {
-                Ok(output) => {
-                    println!("Output: {:?}", output);
-                }
-                Err(err) => {
-                    println!("Failed to bring up reseda server, {:?}", err);
-                }
-        }
-
-        self
     }
 
     pub async fn config_up(&self) -> bool {
@@ -165,5 +181,72 @@ impl WireGuardConfig {
                 false
             }
         }
+    }
+
+    pub fn find_open_slot(&self) -> Slot {
+        for i in 0..self.registry.len() as u8 {
+            for k in 0..255 {
+                match self.registry.get(&i) {
+                    Some(a_val) => {
+                        match a_val.get(&k) {
+                            Some(value) => {
+                                println!("Choosing {:?}::{}", Host { a: i, b: k }, value);
+
+                                match value {
+                                    false => {
+                                        // Pre-emptive return, we have found an open slot and we can reserve it from here.
+                                        return Slot::Open(Host { a: i, b: k })
+                                    }
+                                    true => {}
+                                }
+                            }
+                            None => {}
+                        }
+                    },
+                    None => {},
+                }
+            }
+        }
+
+        Slot::Prospective
+    }
+
+    pub fn reserve_slot(&mut self, requested_slot: Host) -> Reservation {
+        match self.registry.get_mut(&requested_slot.a) {
+            Some(slot_a) => {
+                match slot_a.get_key_value(&requested_slot.b) {
+                    Some(slot_b) => {
+                        match slot_b.1 {
+                            &false => {
+                                slot_a.entry(requested_slot.b).and_modify(| val | { *val = true });
+                                Reservation::Held(requested_slot)
+                            }
+                            &true => { 
+                                println!("[err]: Assigning slot {:?} failed. Reason: Slot had value TRUE", requested_slot);
+                                Reservation::Detached(requested_slot)
+                            }
+                        }
+                    }
+                    None => {
+                        println!("[err]: Assigning slot {:?} failed. Reason: Slot did not have a valid/existing b value.", requested_slot);
+                        Reservation::Detached(requested_slot)
+                    }
+                }
+            }
+            None => {
+                println!("[err]: Assigning slot {:?} failed. Reason: Slot did not have a valid/existing a value.", requested_slot);
+                Reservation::Detached(requested_slot)
+            },
+        }
+    }
+
+    pub fn free_slot(&mut self, freeing_slot: Host) {
+        self.registry.entry(freeing_slot.a)
+            .and_modify(| val | { 
+                val.entry(freeing_slot.b)
+                    .and_modify(| val2 |  {
+                         *val2 = false 
+                    }); 
+            });
     }
 }

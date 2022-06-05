@@ -2,7 +2,7 @@ use std::{convert::Infallible, sync::Arc, time::Duration, process::Command};
 use tokio::sync::Mutex;
 use warp::ws::Message;
 use warp::{Filter, Rejection};
-use crate::types::{QueryParameters, Clients};
+use crate::types::{QueryParameters, Clients, Connection};
 use crate::wireguard::{WireGuardConfig, WireGuard};
 use futures_timer::Delay;
 
@@ -18,7 +18,6 @@ async fn main() {
         Mutex::new(
             WireGuardConfig::load_from_config("config.reseda").await
                 .save_config(true).await
-                // .config_sync().await
                 .to_owned()
         )
     );
@@ -61,6 +60,8 @@ async fn main() {
                                             match client.set_usage(&up, &down) {
                                                 true => {
                                                     println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
+                                                    client.set_connectivity(Connection::Disconnected);
+                                                    config.lock().await.remove_peer(&client).await;
                                                 }
                                                 false => {
                                                     let message = format!("{{\"message:\": {{ \"up\": \"{}\", \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
