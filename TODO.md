@@ -26,4 +26,6 @@ TODO:
 
 - Tunnel Chaining
 
-- Integrate Usage as a Collective, Not a Singular
+- Register Server
+
+- Integrate Usage as a [Collective], Not a [Singular] (Session to Global)

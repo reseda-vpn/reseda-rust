@@ -14,7 +14,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
 
     tokio::task::spawn(client_rcv.forward(client_ws_sender).map(|result| {
         if let Err(e) = result {
-            println!("[ERROR] In: Sending WebSocket Message '{}'", e);
+            println!("[service] Sending WebSocket Message '{}'", e);
         }
     }));
 
@@ -273,7 +273,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(configuration);
 
             let temp = &config.lock().await;
-            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"message\" }}", temp.keys.public_key, temp.config.address, temp.config.listen_port);
+            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"message\" }}", temp.keys.public_key.trim(), temp.config.address, temp.config.listen_port.trim());
 
             let locked = temp.clients.lock().await;
 

@@ -8,7 +8,7 @@ pub struct WireGuardConfigFile {
     pub name: String,
     pub post_up: String,
     pub post_down: String,
-    pub listen_port: i32,
+    pub listen_port: String,
     pub dns: String,
     pub database_url: String
 }

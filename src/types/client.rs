@@ -94,7 +94,7 @@ impl Client {
 
     pub fn set_public_key(mut self, public_key: String) -> Self {
         if public_key.len() == 44 && public_key.ends_with("=") {
-            self.public_key = public_key.replace(" ", "+");
+            self.public_key = public_key.replace(" ", "+").to_string().replace("\n", "").to_string();
             self.valid_pk = true;
         }
 
