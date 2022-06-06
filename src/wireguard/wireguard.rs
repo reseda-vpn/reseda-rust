@@ -18,7 +18,8 @@ pub struct WireGuardConfig {
     pub keys: KeyState,
     pub clients: Clients,
     pub pool: Pool<MySql>,
-    pub registry: BTreeMap<u8, BTreeMap<u8, bool>>
+    pub registry: BTreeMap<u8, BTreeMap<u8, bool>>,
+    pub internal_addr: String
 }
 
 impl WireGuardConfig {
@@ -50,7 +51,8 @@ impl WireGuardConfig {
             keys: keys,
             clients: Arc::new(Mutex::new(HashMap::new())),
             pool: pool,
-            registry: registry
+            registry: registry,
+            internal_addr: "10.8.2.1".to_string()
         }
     }
 
@@ -95,7 +97,7 @@ impl WireGuardConfig {
 
     pub async fn generate_config_string(&self) -> String {
         let mut elems = vec!["[Interface]".to_string()];
-        elems.push(format!("Address = {}/24", &self.config.address));
+        elems.push(format!("Address = {}/24", &self.internal_addr));
         elems.push(format!("PrivateKey = {}", &self.keys.private_key.trim()));
         elems.push(format!("ListenPort = {}", &self.config.listen_port));
         elems.push(format!("DNS = {}", &self.config.dns));

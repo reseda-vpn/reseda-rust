@@ -22,7 +22,7 @@ TODO:
 
 ✅ Generate UUID for Usage Log
 
-- Usage Logs
+✅ Usage Logs
 
 - Tunnel Chaining
 
