@@ -5,6 +5,7 @@ use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Pool, MySql};
 use tokio::sync::{Mutex};
 use std::process::{Command};
+use chrono::Utc;
 
 use std::fs;
 use serde_json;
@@ -73,8 +74,8 @@ impl WireGuardConfig {
         let config = &self.generate_config_string().await;
 
         match fs::write("/etc/wireguard/reseda.conf", config) {
-            Result::Err(_) => {
-                println!("Unable to write!");
+            Result::Err(err) => {
+                println!("[err]: Unable to write configuration. Reason: {:?}", err);
             },
             Result::Ok(_) => {}
         }
@@ -83,10 +84,10 @@ impl WireGuardConfig {
             WireGuardConfig::restart_config(self).await;
         }
 
-        match self.reserve_slot(Host { a: 2, b: 1 }) {
-            Reservation::Held(reservation) => println!("Default Server Slot held; {:?}", reservation),
-            Reservation::Detached(detached) => println!("Slot debounced as detached. {:?}", detached),
-            Reservation::Imissable => println!("Slot returned IMISSABLE"),
+        match self.reserve_slot(Host { a: 2, b: 1, conn_time: Utc::now() }) {
+            Reservation::Held(reservation) => println!("[reserver]: Default Server Slot held; {:?}", reservation),
+            Reservation::Detached(detached) => println!("[reserver]: Error, Slot debounced as detached. {:?}", detached),
+            Reservation::Imissable => println!("[reserver]: Error, Slot returned IMISSABLE"),
         }
 
         self
@@ -131,10 +132,10 @@ impl WireGuardConfig {
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
             .args(["set", "reseda", "peer", &client.public_key, "remove"]).output() {
                 Ok(output) => {
-                    println!("Output: {:?}", output);
+                    println!("[wg]: Remove Peer {:?}", output);
                 }
                 Err(err) => {
-                    println!("Failed to bring up reseda server, {:?}", err);
+                    println!("[wg]: Failed to bring up reseda server, {:?}", err);
                 }
         }
     }
@@ -149,10 +150,10 @@ impl WireGuardConfig {
                     .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
                     .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", &format!("10.8.{}.{}", connection.a, connection.b), "persistent-keepalive", "25"]).output() {
                         Ok(output) => {
-                            println!("Output: {:?}", output);
+                            println!("[wg]: Add Peer: {:?}", output);
                         }
                         Err(err) => {
-                            println!("Failed to bring up reseda server, {:?}", err);
+                            println!("[wg]: Failed to bring up reseda server, {:?}", err);
                         }
                 }
             },
@@ -165,11 +166,11 @@ impl WireGuardConfig {
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
             .args(["up", "reseda"]).output() {
                 Ok(output) => {
-                    println!("Output: {:?}", output);
+                    println!("[wg]: wg-quick up: {:?}", output);
                     true
                 }
                 Err(err) => {
-                    println!("Failed to bring up reseda server, {:?}", err);
+                    println!("[wg]: Failed to bring up reseda server, {:?}", err);
                     false
                 }
         }
@@ -181,11 +182,11 @@ impl WireGuardConfig {
             .args(["down", "reseda"])
             .output() {
             Ok(output) => {
-                println!("Output: {:?}", output);
+                println!("[wg] wg-quick down: {:?}", output);
                 true
             }
             Err(err) => {
-                println!("Failed to take down reseda server, {:?}", err);
+                println!("[wg]: Failed to take down reseda server, {:?}", err);
                 false
             }
         }
@@ -198,12 +199,10 @@ impl WireGuardConfig {
                     Some(a_val) => {
                         match a_val.get(&k) {
                             Some(value) => {
-                                println!("Choosing {:?}::{}", Host { a: i, b: k }, value);
-
                                 match value {
                                     false => {
                                         // Pre-emptive return, we have found an open slot and we can reserve it from here.
-                                        return Slot::Open(Host { a: i, b: k })
+                                        return Slot::Open(Host { a: i, b: k, conn_time: Utc::now() })
                                     }
                                     true => {}
                                 }

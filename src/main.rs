@@ -38,7 +38,7 @@ async fn main() {
 
     tokio::spawn(async move {
         loop {
-            // Task will run ever *10s*
+            // Task will run ever *1s*
             match Command::new("wg")
                 .args(["show", "reseda", "transfer"])
                 .output() {
@@ -80,7 +80,7 @@ async fn main() {
                                                                 println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(), up, down);
                                                             }
                                                             Err(e) => {
-                                                                println!("Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                                println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
                                                             }
                                                         }
                                                     }
@@ -88,18 +88,18 @@ async fn main() {
                                             }
                                         },
                                         None => {
-                                            println!("No user matched for this!")
+                                            println!("[err]: No user matched for this!")
                                         },
                                     }
                                 }
                             }
                             Err(err) => {
-                                println!("Error: {}", err)
+                                println!("[err]: Parsing UTF8: {}", err)
                             }
                         }
                     }
                     Err(err) => {
-                        println!("Failed to bring up reseda server, {:?}", err);
+                        println!("[err]: Failed to bring up reseda server, {:?}", err);
                     }
                 }
 

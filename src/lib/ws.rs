@@ -1,7 +1,9 @@
 use crate::{Clients, types::{self, Query, QueryParameters, Client, Connection, Reservation, Slot}, wireguard::{WireGuard}};
+use chrono::Utc;
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
+use uuid::Uuid;
 use warp::ws::{Message, WebSocket};
 
 pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Option<QueryParameters>) {
@@ -31,12 +33,12 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             match sender.send(Ok(Message::text(format!("{{ \"message\": \"PUBLIC_KEY_OK\", \"type\": \"message\" }}")))) {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
+                                    println!("[err]: Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
                                 }
                             }
                         }
                         Option::None => {
-                            println!("Client does not contain available websocket sender.")
+                            println!("[err]: Client does not contain available websocket sender.")
                         }
                     }
 
@@ -47,8 +49,6 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
 
                     let maximums = match config.lock().await.pool.begin().await {
                         Ok(mut transaction) => {
-                            println!("Querying for a user with uid: {:?}", author_clone);
-                            //r#"SELECT tier FROM `Account` WHERE userId = '?';"#, client.author.clone()
                             match sqlx::query!("select tier from Account where userId = ?", author_clone)
                                 .fetch_one(&mut transaction)
                                 .await {
@@ -70,24 +70,22 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                                                 argument_tier
                                             },
                                             Err(_) => {
-                                                println!("Unable to parse");
+                                                println!("[err]: Unable to parse");
                                                 types::Maximums::Unassigned
                                             },
                                         }
                                     },
                                     Err(err) => {
-                                        println!("Unable to perform request, user will remain unassigned. Reason: {}", err);
+                                        println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
                                         types::Maximums::Unassigned
                                     }
                             }
                         },
                         Err(err) => {
-                            println!("Unable to perform request, user will remain unassigned. Reason: {}", err);
+                            println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
                             types::Maximums::Unassigned
                         }
                     };
-
-                    println!("Query Finished, Returned Tier: {:?}", maximums);
 
                     match config.lock().await.clients.lock().await.get_mut(&pk) {
                         Some(client) => {
@@ -100,7 +98,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                         let msg = match result {
                             Ok(msg) => msg,
                             Err(e) => {
-                                println!("[ERROR] Receiving message for id {}: {}", obj.author.clone(), e);
+                                println!("[err]: Receiving message for id {}: {}", obj.author.clone(), e);
                                 break;
                             }
                         };
@@ -118,12 +116,12 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             match sender.send(Ok(Message::text(format!("{{ \"message\": \"Invalid public key, expected 44 characters.\", \"type\": \"error\" }}")))) {
                                 Ok(_) => {}
                                 Err(e) => {
-                                    println!("Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
+                                    println!("[err]: Failed to send message: \'INVALID_PUBLIC_KEY\', reason: {}", e)
                                 }
                             }
                         }
                         Option::None => {
-                            println!("Client does not contain available websocket sender.")
+                            println!("[err]: Client does not contain available websocket sender.")
                         }
                     }
                     
@@ -134,7 +132,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
             println!("[evt]: Client Removed Successfully");
         }
         None => {
-            println!("[ERROR] Unable to parse parameters given, {:?}", &parameters);
+            println!("[err]: Unable to parse parameters given, {:?}", &parameters);
         }
     };
 }
@@ -168,6 +166,36 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                             client.to_owned().set_connectivity(Connection::Disconnected);
                             configuration.remove_peer(&client).await;
 
+                            let connection_usage = client.get_usage();
+                            let session_id = Uuid::new_v4().to_string();
+                            let con_time = connection.conn_time.to_rfc3339();
+                            let now = Utc::now().to_rfc3339();
+
+                            let down = connection_usage.0.to_string();
+                            let up = connection_usage.1.to_string();
+                            
+                            match configuration.pool.begin().await {
+                                Ok(mut transaction) => {
+                                    match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
+                                        .execute(&mut transaction)
+                                        .await {
+                                            Ok(result) => {
+                                                match transaction.commit().await {
+                                                    Ok(r2) => {
+                                                        println!("[sqlx]: Usage Log Transaction Result: {:?}, {:?}", result, r2);
+                                                    },
+                                                    Err(error) => println!("[sqlx]: Transaction Commitance Error: {:?}", error),
+                                                }
+
+                                            },
+                                            Err(error) => println!("[sqlx]: Transaction Error: {:?}", error),
+                                        }
+                                },
+                                Err(err) => {
+                                    println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
+                                }
+                            };
+
                             Slot::Open(connection.clone())
                         }
                     }
@@ -180,10 +208,10 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             drop(locked);
             match connection_to_drop {
                 Slot::Open(drop) => {
-                    println!("Freeing up now unused slot; {:?}", drop);
+                    println!("[reserver]: Freeing up now unused slot; {:?}", drop);
                     configuration.free_slot(&drop);
                 },
-                Slot::Prospective => println!("Could not drop"),
+                Slot::Prospective => println!("[reserver]: Error, Could not drop"),
             }
             drop(configuration);
 
@@ -199,7 +227,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                     }
                 }
                 None => {
-                    println!("Failed to find user with id: {}", client_id);
+                    println!("[err]: Failed to find user with id: {}", client_id);
                 },
             }
         },
@@ -207,13 +235,13 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             let mut configuration = config.lock().await;
 
             let slot = configuration.find_open_slot();
-            println!("Found slot: {:?}", slot);
+            println!("[reserver]: Found slot: {:?}", slot);
 
             let reserved_slot = match slot {
                 types::Slot::Open(open_slot) => configuration.reserve_slot(open_slot),
                 types::Slot::Prospective => Reservation::Imissable,
             };
-            println!("Reserved Slot: {:?}", reserved_slot);
+            println!("[reserver]: Reserved Slot: {:?}", reserved_slot);
 
             match reserved_slot {
                 Reservation::Held(valid_slot) => {
@@ -225,7 +253,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                             v.set_connectivity(Connection::Connected(valid_slot));
                             configuration.add_peer(v).await;
 
-                            println!("Success, Created Peer {:?} on slot {:?}", v.public_key, v.connected);
+                            println!("[evt]: Success, Created Peer {:?} on slot {:?}", v.public_key, v.connected);
                         }
                         None => {
                             drop(lock);
@@ -235,10 +263,10 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                     }
                 }
                 Reservation::Imissable => {
-                    println!("Unable to add user to slot");
+                    println!("[reserver]: Error, Unable to add user to slot (Imissable)");
                 }
-                Reservation::Detached(_) => {
-                    println!("Unable to add user to slot");
+                Reservation::Detached(err) => {
+                    println!("[reserver]: Error, Unable to add user to slot (Detached): {:?}", err);
                 },
             }
 
@@ -256,7 +284,7 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                     }
                 }
                 None => {
-                    println!("Failed to find user with id: {}", client_id);
+                    println!("[err]: Failed to find user with id: {}", client_id);
                 },
             }
         },

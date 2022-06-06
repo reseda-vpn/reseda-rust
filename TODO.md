@@ -14,4 +14,16 @@ TODO:
 
 ✅ Replace allowed IP address with a dynamically assigned address
 
-- Get HTTPS working
+✅ Get HTTPS working
+
+✅ Give users live usage updates
+
+✅ Implement DateTime for Connection and Leave Connection (Into Connection Object - Tied to host)
+
+✅ Generate UUID for Usage Log
+
+- Usage Logs
+
+- Tunnel Chaining
+
+- Integrate Usage as a Collective, Not a Singular

@@ -1,4 +1,5 @@
 use std::{collections::HashMap, sync::Arc};
+use chrono::{Utc, DateTime};
 use tokio::sync::{mpsc, Mutex};
 use warp::ws::Message;
 
@@ -39,7 +40,8 @@ impl Maximums {
 #[derive(Debug, Clone)]
 pub struct Host {
     pub a: u8,
-    pub b: u8
+    pub b: u8,
+    pub conn_time: DateTime<Utc>
 }
 
 #[derive(Debug, Clone)]
@@ -84,6 +86,10 @@ impl Client {
         self.connected = new_status;
 
         self
+    }
+
+    pub fn get_usage(&self) -> (i128, i128) {
+        (self.usage.down, self.usage.up)
     }
 
     pub fn set_public_key(mut self, public_key: String) -> Self {
