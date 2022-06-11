@@ -250,9 +250,26 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
 
                     match client {
                         Some(v) => {
+                            let clone = &valid_slot.clone();
+
                             v.set_connectivity(Connection::Connected(valid_slot));
                             configuration.add_peer(v).await;
 
+                            let a = &clone.a.clone();
+                            let b = &clone.b.clone();
+
+                            let message = format!(
+                                "{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\", \"subdomain\": \"{}.{}\" }}, \"type\": \"message\" }}", 
+                                configuration.keys.public_key.trim(), 
+                                configuration.config.address, 
+                                configuration.config.listen_port.trim(),
+                                &a, &b
+                            );
+                            
+                            if let Some(sender) = &v.sender {
+                                let _ = sender.send(Ok(Message::text(message)));
+                            }
+                 
                             println!("[evt]: Success, Created Peer {:?} on slot {:?}", v.public_key, v.connected);
                         }
                         None => {
@@ -267,24 +284,6 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                 }
                 Reservation::Detached(err) => {
                     println!("[reserver]: Error, Unable to add user to slot (Detached): {:?}", err);
-                },
-            }
-
-            drop(configuration);
-
-            let temp = &config.lock().await;
-            let message = format!("{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\" }}, \"type\": \"message\" }}", temp.keys.public_key.trim(), temp.config.address, temp.config.listen_port.trim());
-
-            let locked = temp.clients.lock().await;
-
-            match locked.get(client_id) {
-                Some(v) => {
-                    if let Some(sender) = &v.sender {
-                        let _ = sender.send(Ok(Message::text(message)));
-                    }
-                }
-                None => {
-                    println!("[err]: Failed to find user with id: {}", client_id);
                 },
             }
         },
