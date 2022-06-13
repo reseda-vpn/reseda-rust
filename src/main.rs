@@ -72,7 +72,7 @@ async fn main() {
                                                     }
                                                 }
                                                 false => {
-                                                    let message = format!("{{ \"message:\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
+                                                    let message = format!("{{ \"message\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
 
                                                     if let Some(sender) = &client.sender {
                                                         match sender.send(Ok(Message::text(message))) {
