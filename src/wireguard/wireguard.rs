@@ -86,6 +86,10 @@ impl WireGuardConfig {
             WireGuardConfig::restart_config(self).await;
         }
 
+        // Using:: https://gist.github.com/qdm12/4e0e4f9d1a34db9cf63ebb0997827d0d
+        // Try to implement localized security policies such that data cannot be shared domestically
+        // and users on the VPN cannot access eachother.
+
         match self.reserve_slot(Host { a: 2, b: 1, conn_time: Utc::now() }) {
             Reservation::Held(reservation) => println!("[reserver]: Default Server Slot held; {:?}", reservation),
             Reservation::Detached(detached) => println!("[reserver]: Error, Slot debounced as detached. {:?}", detached),

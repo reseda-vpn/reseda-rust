@@ -88,6 +88,17 @@ impl Client {
         self
     }
 
+    pub fn merge_from(&mut self, client: &mut Client) -> &mut Self {
+        self.author = client.author.clone();
+        self.public_key = client.public_key.clone();
+        self.maximums = client.maximums.clone();
+        self.connected = client.connected.clone();
+        self.usage = client.usage;
+        self.valid_pk = client.valid_pk;
+
+        self
+    }
+
     pub fn get_usage(&self) -> (i128, i128) {
         (self.usage.down, self.usage.up)
     }
