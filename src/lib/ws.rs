@@ -45,15 +45,19 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                     let pk = client.public_key.clone();
                     let author_clone = client.author.clone(); //format!("\'{}\'", client.author.clone().trim_matches('\"'));
 
-                    match config.lock().await.clients.lock().await.get_mut(&pk.clone()) {
-                        Some(client2) => {
-                            client.merge_from(client2);
-                            config.lock().await.clients.lock().await.insert(pk.clone(), client);
-                        }
-                        None => {
-                            config.lock().await.clients.lock().await.insert(pk.clone(), client);
-                        }
+                    let new_client_config = match config.lock().await.clients.lock().await.insert(pk.clone(), client.clone()) {
+                        Some(cloned_client) => {
+                            client.merge_from(&cloned_client.clone())
+                        },
+                        None => &client,
                     };
+
+                    match config.lock().await.clients.lock().await.get_mut(&pk) {
+                        Some(_client) => {
+                            _client.merge_from(new_client_config);
+                        }
+                        None => {}
+                    }
 
                     let maximums = match config.lock().await.pool.begin().await {
                         Ok(mut transaction) => {

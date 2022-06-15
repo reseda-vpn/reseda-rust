@@ -88,7 +88,7 @@ impl Client {
         self
     }
 
-    pub fn merge_from(&mut self, client: &mut Client) -> &mut Self {
+    pub fn merge_from(&mut self, client: &Client) -> &mut Self {
         self.author = client.author.clone();
         self.public_key = client.public_key.clone();
         self.maximums = client.maximums.clone();
