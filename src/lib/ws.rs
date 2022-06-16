@@ -45,19 +45,25 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                     let pk = client.public_key.clone();
                     let author_clone = client.author.clone(); //format!("\'{}\'", client.author.clone().trim_matches('\"'));
 
-                    let new_client_config = match config.lock().await.clients.lock().await.insert(pk.clone(), client.clone()) {
-                        Some(cloned_client) => {
-                            client.merge_from(&cloned_client.clone())
-                        },
-                        None => &client,
-                    };
+                    let exists = config.lock().await.clients.lock().await.contains_key(&pk.clone());
 
-                    match config.lock().await.clients.lock().await.get_mut(&pk) {
-                        Some(_client) => {
-                            _client.merge_from(new_client_config);
+                    match exists {
+                        true => {
+                            match config.lock().await.clients.lock().await.get_mut(&pk) {
+                                Some(config) => {
+                                    client.merge_from(&config.clone());
+                                },
+                                None => {
+                                    println!("[err]: Exists, but does not... exist?");
+                                },
+                            }
+
+                            config.lock().await.clients.lock().await.insert(pk.clone(), client.clone());
                         }
-                        None => {}
-                    }
+                        false => {
+                            config.lock().await.clients.lock().await.insert(pk.clone(), client.clone());
+                        }
+                    };
 
                     let maximums = match config.lock().await.pool.begin().await {
                         Ok(mut transaction) => {
