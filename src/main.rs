@@ -16,7 +16,8 @@ type Result<T> = std::result::Result<T, Rejection>;
 async fn main() {
     let config: WireGuard = Arc::new(
         Mutex::new(
-            WireGuardConfig::load_from_config("config.reseda").await
+            WireGuardConfig::initialize().await
+                .register_server().await
                 .save_config(true).await
                 .to_owned()
         )

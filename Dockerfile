@@ -34,8 +34,6 @@ RUN \
 	bc \
 	build-essential \
 	curl \
-	# netfilter-persistent \ 
-	# iptables-persistent \ 
 	dkms \
 	git \
 	gnupg \ 
@@ -44,13 +42,13 @@ RUN \
 	iptables \
 	iputils-ping \
 	jq \
-	libc6 \
 	libelf-dev \
 	net-tools \
 	openresolv \
 	perl \
 	pkg-config \
-	qrencode 
+	qrencode \
+	ca-certificates
 
 RUN \
  echo "**** install wireguard-tools ****" && \
@@ -89,6 +87,7 @@ COPY --from=builder /app/target/release/ ./app
 
 # Add Configuration File
 ADD config.reseda ./app 
+ADD .env ./app
 
 # Add Certificates REQURED for HTTPS
 ADD cert.pem ./app 

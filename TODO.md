@@ -24,6 +24,12 @@ TODO:
 
 ✅ Usage Logs
 
+✅ Move from config.reseda to a environment variable system for dynamic deployment.
+
+- Dynamic Edge Key Assignment for dynamic deployment 
+
+- Kubectl Support
+
 - Tunnel Chaining
 
 - Register Server

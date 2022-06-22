@@ -6,9 +6,11 @@ use sqlx::{Pool, MySql};
 use tokio::sync::{Mutex};
 use std::process::{Command};
 use chrono::Utc;
+use reqwest;
+use std::env;
 
+use dotenv;
 use std::fs;
-use serde_json;
 
 pub type WireGuard = Arc<Mutex<WireGuardConfig>>;
 
@@ -23,11 +25,11 @@ pub struct WireGuardConfig {
 }
 
 impl WireGuardConfig {
-    pub async fn load_from_config(file_path: &str) -> Self {
-        // Load local config file as string
-        let data = fs::read_to_string(file_path).expect("Unable to read file");
-        // Convert to JSON
-        let res: WireGuardConfigFile = serde_json::from_str(&data).expect("Unable to parse");
+    pub async fn initialize() -> Self {
+        dotenv::dotenv().expect(".env file not found");
+        
+        // Import configuration from environment
+        let res = WireGuardConfigFile::from_environment().await;
         // Generate Keys
         let keys = KeyState::generate_pair();
         // Initialize IP Registry (maps 65025 possible IP addresses)
@@ -54,6 +56,55 @@ impl WireGuardConfig {
             registry: registry,
             internal_addr: "10.8.2.1".to_string()
         }
+    }
+
+    pub async fn register_server(&mut self) -> &mut Self {
+        match env::var("BEARER_AUTH") {
+            Ok(auth_token) => {
+                let client = reqwest::Client::new();
+
+                match client.post("https://api.cloudflare.com/client/v4/zones/ebb52f1687a35641237774c39391ba2a/dns_records")
+                    .body(format!("
+                    {{
+                        \"type\": \"A\",
+                        \"name\": \"{}\",
+                        \"content\": \"{}\",
+                        \"ttl\": 3600,
+                        \"priority\": 10,
+                        \"proxied\": false
+                    }}", self.config.name, self.config.address))
+                    .header("Content-Type", "application/json")
+                    .bearer_auth(auth_token)
+                    .send().await {
+                        Ok(response) => {
+                            println!("RES: {:?}", response);
+                        },
+                        Err(err) => {
+                            println!("Error in Request; {}", err)
+                        },
+                    }
+            },
+            Err(_) => panic!("[err]: Unable to start service, missing NAME env variable.")
+        }
+        
+
+        // Register Server in Public Domain Database
+        // match sqlx::query!("insert into Server (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
+        // .execute(&mut transaction)
+        // .await {
+        //     Ok(result) => {
+        //         match transaction.commit().await {
+        //             Ok(r2) => {
+        //                 println!("[sqlx]: Usage Log Transaction Result: {:?}, {:?}", result, r2);
+        //             },
+        //             Err(error) => println!("[sqlx]: Transaction Commitance Error: {:?}", error),
+        //         }
+
+        //     },
+        //     Err(error) => println!("[sqlx]: Transaction Error: {:?}", error),
+        // }
+
+        self
     }
 
     pub fn init_registry(highest: u8) -> BTreeMap<u8, BTreeMap<u8, bool>> {
@@ -107,21 +158,6 @@ impl WireGuardConfig {
         elems.push(format!("DNS = {}", &self.config.dns));
         elems.push(format!("PostUp = {}", &self.config.post_up));
         elems.push(format!("PostDown = {}", &self.config.post_down));
-
-        // Only used on initialization, no peers should be added this way.
-        // for (_, value) in self.clients.lock().await.iter() {
-        //     match value.connected {
-        //         Connection::Connected(_) => {
-        //             elems.push("\n".to_string());
-        //             elems.push("[Peer]".to_string());   
-        //             elems.push(format!("PublicKey = {}", value.public_key));
-        //             // TODO: Replace allowed IP address with a dynamically assigned address
-        //             elems.push(format!("AllowedIPs = 192.168.69.{}/24", 2));
-        //             elems.push(format!("PersistentKeepalive = 25"));
-        //         }
-        //         Connection::Disconnected => {}
-        //     }
-        // };
 
         elems.join("\n")
     }
