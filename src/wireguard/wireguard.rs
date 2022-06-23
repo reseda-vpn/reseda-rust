@@ -1,6 +1,7 @@
 use crate::types::{WireGuardConfigFile, Clients, KeyState, Client, Host, Reservation, Slot, Connection};
 use std::collections::BTreeMap;
 use std::{collections::HashMap, sync::Arc};
+use serde::Deserialize;
 use sqlx::mysql::MySqlPoolOptions;
 use sqlx::{Pool, MySql};
 use tokio::sync::{Mutex};
@@ -11,6 +12,7 @@ use std::env;
 
 use dotenv;
 use std::fs;
+use rcgen::generate_simple_self_signed;
 
 pub type WireGuard = Arc<Mutex<WireGuardConfig>>;
 
@@ -67,26 +69,78 @@ impl WireGuardConfig {
                     .body(format!("
                     {{
                         \"type\": \"A\",
-                        \"name\": \"{}\",
+                        \"name\": \"{}.dns\",
                         \"content\": \"{}\",
                         \"ttl\": 3600,
                         \"priority\": 10,
                         \"proxied\": false
                     }}", self.config.name, self.config.address))
                     .header("Content-Type", "application/json")
-                    .bearer_auth(auth_token)
+                    .header("Authorization", format!("Bearer {}", auth_token))
+                    .send().await {
+                        Ok(_) => {},
+                        Err(err) => {
+                            panic!("[err]: Error in setting non-proxied DNS {}", err)
+                        },
+                    }
+
+                match client.post("https://api.cloudflare.com/client/v4/zones/ebb52f1687a35641237774c39391ba2a/dns_records")
+                    .body(format!("
+                    {{
+                        \"type\": \"A\",
+                        \"name\": \"{}\",
+                        \"content\": \"{}\",
+                        \"ttl\": 3600,
+                        \"priority\": 10,
+                        \"proxied\": true
+                    }}", self.config.name, self.config.address))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", auth_token))
+                    .send().await {
+                        Ok(_) => {},
+                        Err(err) => {
+                            panic!("[err]: Error in setting proxied DNS {}", err)
+                        },
+                    }
+                
+                let cert = generate_simple_self_signed(vec![format!("{}.reseda.app", self.config.name)]).unwrap();
+                let cert_t = cert.serialize_request_pem().unwrap();
+                let cert_string = cert_t.replace("\r", "");
+                
+                println!("{}", format!("
+                {{
+                    \"hostnames\": [
+                        \"{}.reseda.app\"
+                    ],
+                    \"requested_validity\": 5475,
+                    \"request_type\": \"origin-rsa\",
+                    \"csr\": \"{}\"
+                }}", self.config.name, cert_string.trim()));
+
+                match client.post("https://api.cloudflare.com/client/v4/certificates")
+                    .body(format!("
+                    {{
+                        \"hostnames\": [
+                            \"{}.reseda.app\"
+                        ],
+                        \"requested_validity\": 5475,
+                        \"request_type\": \"origin-rsa\",
+                        \"csr\": \"{}\"
+                    }}", self.config.name, cert_string))
+                    .header("Content-Type", "application/json")
+                    .header("Authorization", format!("Bearer {}", auth_token))
                     .send().await {
                         Ok(response) => {
-                            println!("RES: {:?}", response);
+                            let r = response.text().await;
+                            println!("{:?}", r);
                         },
                         Err(err) => {
-                            println!("Error in Request; {}", err)
+                            panic!("[err]: Error in setting proxied DNS {}", err)
                         },
                     }
             },
             Err(_) => panic!("[err]: Unable to start service, missing NAME env variable.")
         }
-        
 
         // Register Server in Public Domain Database
         // match sqlx::query!("insert into Server (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
