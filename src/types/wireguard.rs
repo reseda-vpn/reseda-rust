@@ -11,36 +11,59 @@ pub struct WireGuardConfigFile {
     pub post_down: String,
     pub listen_port: String,
     pub dns: String,
-    pub database_url: String
+    pub database_url: String,
+
+    pub location: String,
+    pub country: String,
+    pub flag: String
 }
 
 impl WireGuardConfigFile {
     pub async fn from_environment() -> Self {
-        match env::var("NAME") {
-            Ok(environment) => {
-                match env::var("DATABASE_URL") {
-                    Ok(database) => {
-                        match public_ip::addr().await {
-                            Some(ip) => {
-                                let ip_addr = ip.to_string();
+        let location = match env::var("LOCATION") {
+            Ok(value) => value,
+            Err(_) => panic!("Could not identify environment variable: LOCATION")
+        };
 
-                                Self {
-                                    name: environment,
-                                    address: ip_addr,
-                                    post_up: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
-                                    post_down: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
-                                    dns: "1.1.1.1".to_string(),
-                                    listen_port: "51820".to_string(),
-                                    database_url: database
-                                }
-                            },
-                            None => panic!("[err]: Unable to retrieve IP address.")
-                        }
-                    },
-                    Err(_) => panic!("[err]: Unable to start service, missing DATABASE_URL env variable.")
+        let country = match env::var("COUNTRY") {
+            Ok(value) => value,
+            Err(_) => panic!("Could not identify environment variable: COUNTRY")
+        };
+
+        let flag = match env::var("FLAG") {
+            Ok(value) => value,
+            Err(_) => panic!("Could not identify environment variable: COUNTRY")
+        };
+
+        let name = match env::var("NAME") {
+            Ok(value) => value,
+            Err(_) => panic!("Could not identify environment variable: NAME")
+        };
+
+        let database_url = match env::var("DATABASE_URL") {
+            Ok(value) => value,
+            Err(_) => panic!("Could not identify environment variable: DATABASE_URL")
+        };
+
+        match public_ip::addr().await {
+            Some(ip) => {
+                let ip_addr = ip.to_string();
+
+                Self {
+                    name: name,
+                    address: ip_addr,
+                    post_up: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
+                    post_down: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
+                    dns: "1.1.1.1".to_string(),
+                    listen_port: "51820".to_string(),
+                    database_url: database_url,
+
+                    location: location,
+                    country: country,
+                    flag: flag
                 }
             },
-            Err(_) => panic!("[err]: Unable to start service, missing NAME env variable.")
+            None => panic!("[err]: Unable to retrieve IP address.")
         }
     }
 }

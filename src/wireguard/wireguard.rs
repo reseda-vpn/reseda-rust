@@ -10,6 +10,9 @@ use chrono::Utc;
 use reqwest;
 use std::env;
 
+use std::fs::File;
+use std::io::Write;
+
 use dotenv;
 use std::fs;
 use rcgen::generate_simple_self_signed;
@@ -24,6 +27,17 @@ pub struct WireGuardConfig {
     pub pool: Pool<MySql>,
     pub registry: BTreeMap<u8, BTreeMap<u8, bool>>,
     pub internal_addr: String
+}
+
+#[derive(Deserialize, Debug)]
+struct CloudflareReturn {
+    pub success: bool,
+    pub result: CloudflareResult
+}
+
+#[derive(Deserialize, Debug)]
+struct CloudflareResult {
+    pub certificate: String
 }
 
 impl WireGuardConfig {
@@ -101,22 +115,13 @@ impl WireGuardConfig {
                         Err(err) => {
                             panic!("[err]: Error in setting proxied DNS {}", err)
                         },
-                    }
+                    };
                 
                 let cert = generate_simple_self_signed(vec![format!("{}.reseda.app", self.config.name)]).unwrap();
-                let cert_t = cert.serialize_request_pem().unwrap();
-                let cert_string = cert_t.replace("\r", "");
+                let cert_public = cert.serialize_request_pem().unwrap();
+                let cert_private = cert.serialize_private_key_pem();
+                let cert_string = cert_public.replace("\r", "").split("\n").collect::<Vec<&str>>().join("\\n");
                 
-                println!("{}", format!("
-                {{
-                    \"hostnames\": [
-                        \"{}.reseda.app\"
-                    ],
-                    \"requested_validity\": 5475,
-                    \"request_type\": \"origin-rsa\",
-                    \"csr\": \"{}\"
-                }}", self.config.name, cert_string.trim()));
-
                 match client.post("https://api.cloudflare.com/client/v4/certificates")
                     .body(format!("
                     {{
@@ -131,32 +136,79 @@ impl WireGuardConfig {
                     .header("Authorization", format!("Bearer {}", auth_token))
                     .send().await {
                         Ok(response) => {
-                            let r = response.text().await;
-                            println!("{:?}", r);
+                            let r = response.json::<CloudflareReturn>().await;
+
+                            match r {
+                                Ok(return_value) => {
+                                    if return_value.success == false {
+                                        println!("[err]: cloudlfare certificate creation FAILED, return value FAILURE. Reason: {:?}", return_value);
+                                    }
+
+                                    match File::create("key.pem") {
+                                        Ok(mut output) => {
+                                            match write!(output, "{}", cert_private) {
+                                                Ok(_) => {},
+                                                Err(err) => {
+                                                    println!("[err]: Unable to write file file::key.pem; {}", err);
+                                                },
+                                            }
+                                        },
+                                        Err(err) => {
+                                            println!("[err]: Unable to open file stream for file::key.pem; {}", err)
+                                        },
+                                    }
+
+                                    match File::create("cert.pem") {
+                                        Ok(mut output) => {
+                                            match write!(output, "{}", return_value.result.certificate) {
+                                                Ok(_) => {},
+                                                Err(err) => {
+                                                    println!("[err]: Unable to write file file::cert.pem; {}", err);
+                                                },
+                                            }
+                                        },
+                                        Err(err) => {
+                                            println!("[err]: Unable to open file stream for file::cert.pem; {}", err)
+                                        },
+                                    }
+                                },
+                                Err(err) => {
+                                    println!("[err]: Deserializing Cloudflare Result: {}", err);
+                                }
+                            };
                         },
                         Err(err) => {
                             panic!("[err]: Error in setting proxied DNS {}", err)
                         },
-                    }
+                    };
             },
             Err(_) => panic!("[err]: Unable to start service, missing NAME env variable.")
         }
 
-        // Register Server in Public Domain Database
-        // match sqlx::query!("insert into Server (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
-        // .execute(&mut transaction)
-        // .await {
-        //     Ok(result) => {
-        //         match transaction.commit().await {
-        //             Ok(r2) => {
-        //                 println!("[sqlx]: Usage Log Transaction Result: {:?}, {:?}", result, r2);
-        //             },
-        //             Err(error) => println!("[sqlx]: Transaction Commitance Error: {:?}", error),
-        //         }
+        println!("[service]: Registered with Cloudflare. Ready for reseda-mesh registration...");
 
-        //     },
-        //     Err(error) => println!("[sqlx]: Transaction Error: {:?}", error),
-        // }
+        match self.pool.begin().await {
+            Ok(mut transaction) => {
+                // Register Server in Public Domain Database
+                match sqlx::query!("insert into Server (id, location, country, hostname, flag) values (?, ?, ?, ?, ?)", self.config.name, self.config.location, self.config.country, self.config.address, self.config.flag)
+                    .execute(&mut transaction)
+                    .await {
+                        Ok(result) => {
+                            match transaction.commit().await {
+                                Ok(r2) => {
+                                    println!("[sqlx]: Usage Log Transaction Result: {:?}, {:?}", result, r2);
+                                },
+                                Err(error) => println!("[sqlx]: Transaction Commitance Error: {:?}", error),
+                            }
+
+                        },
+                        Err(error) => println!("[sqlx]: Transaction Error: {:?}", error),
+                    }
+            },
+            Err(err) => {
+                println!("[err]: Unable to perform publishment request, server is currently::HIDDEN. Reason: {}", err);
+            }
+        };
 
         self
     }
