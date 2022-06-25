@@ -1,0 +1,32 @@
+name: Build Docker image and Push to DOCR.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+    -
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: registry.digitalocean.com
+          username: ${{ secrets.DO_TOKEN }}
+          password: ${{ secrets.DO_TOKEN }}
+    -
+        name: Checkout
+        uses: actions/checkout@v3
+    - 
+      name: Build the Docker image
+      run: docker build . -t registry.digitalocean.com/reseda-contained/reseda-rust:$(date +%s)
+    -
+        name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: registry.digitalocean.com/reseda-contained/reseda-rust:latest
