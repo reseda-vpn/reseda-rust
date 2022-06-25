@@ -15,8 +15,10 @@ RUN cargo chef cook --release --recipe-path recipe.json
 FROM rust:1.61 as builder
 WORKDIR /app
 COPY . .
+
 ARG db
 ENV DATABASE_URL=$db
+
 COPY --from=cacher /app/target target
 RUN cargo build --release --bin reseda-rust
 
@@ -74,11 +76,6 @@ RUN \
 	/var/tmp/*
 
 COPY --from=builder /app/target/release/reseda-rust ./app
-
-# Add Configuration File
-ADD .env ./app
-
-
 
 # ports and volumes
 EXPOSE 51820/udp
