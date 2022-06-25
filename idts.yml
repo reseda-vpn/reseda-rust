@@ -1,0 +1,14 @@
+apiVersion: v1
+data:
+  .env: |-
+    LOCATION=    "New Zealand"
+    COUNTRY=     "Asia/New Zealand"
+    FLAG=        "new-zealand"
+    REGION_NAME= "nz-1"
+kind: ConfigMap
+metadata:
+  creationTimestamp: "2022-06-25T06:28:26Z"
+  name: reseda-idts
+  namespace: default
+  resourceVersion: "71042"
+  uid: ae35780c-6c60-4de0-9dff-93e0a9be5a9d

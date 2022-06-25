@@ -1,26 +1,23 @@
-version: '3.7'
+version: '3'
 
 services:
-  wireguard:
+  reseda:
     image: docker.io/unrealgdev/reseda-rust 
     container_name: reseda-rust
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
     environment:
-      - PUID=1000
-      - PGID=1000
-      - SERVERPORT=51820
-      - ALLOWEDIPS=0.0.0.0/0
-    volumes:
-      -  ./configs/:/configs
-      - /lib/modules:/lib/modules
+      - RESEDA_DB=$RESEDA_DB
+      - RESEDA_AUTH=$RESEDA_AUTH
+      - RESEDA_LOCATION=$LOCATION
+      - RESEDA_COUNTRY=$COUNTRY
+      - RESEDA_FLAG=$FLAG
+      - RESEDA_REGION_NAME=$REGION_NAME
     ports:
-      # Wireguard
       - 51820:51820/udp
-      # Reseda Websockets
       - 80:80
       - 443:443
     sysctls:
       - net.ipv4.conf.all.src_valid_mark=1
-    restart: unless-stopped
+    restart: always

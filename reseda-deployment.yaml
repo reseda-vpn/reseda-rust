@@ -1,0 +1,62 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: reseda
+  name: reseda
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: reseda
+    spec:
+      containers:
+      - env:
+        - name: RESEDA_AUTH
+          valueFrom:
+            secretKeyRef:
+              name: reseda-secret
+              key: RESEDA_AUTH
+        - name: RESEDA_DB
+          valueFrom:
+              secretKeyRef:
+                name: reseda-secret
+                key: RESEDA_DB
+        - name: COUNTRY
+          configMapKeyRef:
+              key: COUNTRY
+              name: reseda-idts
+        - name: FLAG
+          configMapKeyRef:
+              key: FLAG
+              name: reseda-idts
+        - name: LOCATION
+          configMapKeyRef:
+              key: LOCATION
+              name: reseda-idts
+        - name: NAME
+          configMapKeyRef:
+              key: NAME
+              name: reseda-idts
+        image: docker.io/unrealgdev/reseda-rust
+        name: reseda-rust
+        ports:
+        - containerPort: 51820
+          protocol: UDP
+        - containerPort: 80
+        - containerPort: 443
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - SYS_MODULE
+      restartPolicy: Always
+status: {}

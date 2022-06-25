@@ -1,1 +1,9 @@
-/target
+target/
+tests/
+Dockerfile
+scripts/
+migrations/
+.vscode
+cert.pem
+key.pem
+todo.md 

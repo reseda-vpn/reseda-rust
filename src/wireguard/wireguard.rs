@@ -75,7 +75,7 @@ impl WireGuardConfig {
     }
 
     pub async fn register_server(&mut self) -> &mut Self {
-        match env::var("BEARER_AUTH") {
+        match env::var("RESEDA_AUTH") {
             Ok(auth_token) => {
                 let client = reqwest::Client::new();
 

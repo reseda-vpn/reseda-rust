@@ -20,27 +20,31 @@ pub struct WireGuardConfigFile {
 
 impl WireGuardConfigFile {
     pub async fn from_environment() -> Self {
-        let location = match env::var("LOCATION") {
+        // Redo from here
+        let location = match env::var("RESEDA_LOCATION") {
             Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: LOCATION")
+            Err(_) => panic!("Could not identify environment variable: RESEDA_LOCATION")
         };
 
-        let country = match env::var("COUNTRY") {
+        let country = match env::var("RESEDA_COUNTRY") {
             Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: COUNTRY")
+            Err(_) => panic!("Could not identify environment variable: RESEDA_COUNTRY")
         };
 
-        let flag = match env::var("FLAG") {
+        let flag = match env::var("RESEDA_FLAG") {
             Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: COUNTRY")
+            Err(_) => panic!("Could not identify environment variable: RESEDA_FLAG")
         };
 
-        let name = match env::var("NAME") {
+        let name = match env::var("RESEDA_REGION_NAME") {
             Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: NAME")
+            Err(_) => panic!("Could not identify environment variable: RESEDA_REGION_NAME")
         };
 
-        let database_url = match env::var("DATABASE_URL") {
+        // to here
+        // based on alternative model of a server registration
+
+        let database_url = match env::var("RESEDA_DB") {
             Ok(value) => value,
             Err(_) => panic!("Could not identify environment variable: DATABASE_URL")
         };

@@ -1,4 +1,4 @@
-TODO:
+Reseda VPN Tasks: (One Completed, Server is Finished)
 
 ✅ Get WireGuard info in the second thread every 10 and store to the global usage hash
 
@@ -26,12 +26,27 @@ TODO:
 
 ✅ Move from config.reseda to a environment variable system for dynamic deployment.
 
-- Dynamic Edge Key Assignment for dynamic deployment 
+✅ Dynamic Edge Key Assignment for dynamic deployment 
 
-- Kubectl Support
+✅ Register Server
 
-- Tunnel Chaining
+- Change from .env file to docker file environment variables that can be passed in on compile time for the items that are not pre-baked, such as the conenction strings.
+--- This means that we can create a github action to precompile and push the docker image so that the containers can be largely minified.
+Therefore, the only thing that needs to happen is a container pull, set env variables and go. 
 
-- Register Server
+i.e.
+hapi_server:
+  container_name: hapi_server
+  image: node_image
+  environment:
+    - HAPI_DB_CONNECT=${NODE_DB_CONNECT}
+  expose:
+    - "3000"
+
+where the environments are set by the env file...?
 
 - Integrate Usage as a [Collective], Not a [Singular] (Session to Global)
+
+- Integrate for k8 clusters
+
+- Tunnel Chaining

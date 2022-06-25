@@ -15,6 +15,8 @@ RUN cargo chef cook --release --recipe-path recipe.json
 FROM rust:1.61 as builder
 WORKDIR /app
 COPY . .
+ARG db
+ENV DATABASE_URL=$db
 COPY --from=cacher /app/target target
 RUN cargo build --release --bin reseda-rust
 
@@ -22,7 +24,6 @@ FROM ubuntu:latest
 
 # set version label
 ARG WIREGUARD_RELEASE="v1.0.20210914"
-ARG COREDNS_VERSION
 
 RUN \
  mkdir /app \
@@ -65,17 +66,6 @@ RUN \
  make -C src -j$(nproc) && \
  make -C src install 
 
-# RUN \
-#  echo "**** install CoreDNS ****" && \
-#  COREDNS_VERSION=$(curl -sX GET "https://api.github.com/repos/coredns/coredns/releases/latest" \
-# 	| awk '/tag_name/{print $4;exit}' FS='[""]' | awk '{print substr($1,2); }') && \
-#  curl -o \
-# 	/tmp/coredns.tar.gz -L \
-# 	"https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${COREDNS_VERSION}_linux_amd64.tgz" && \
-#  tar xf \
-# 	/tmp/coredns.tar.gz -C \
-# 	/app && 
-
 RUN \
  echo "**** clean up ****" && \
  rm -rf \
@@ -83,10 +73,12 @@ RUN \
 	/var/lib/apt/lists/* \
 	/var/tmp/*
 
-COPY --from=builder /app/target/release/ ./app
+COPY --from=builder /app/target/release/reseda-rust ./app
 
 # Add Configuration File
 ADD .env ./app
+
+
 
 # ports and volumes
 EXPOSE 51820/udp
