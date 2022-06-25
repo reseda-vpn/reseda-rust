@@ -82,6 +82,8 @@ EXPOSE 51820/udp
 EXPOSE 80
 EXPOSE 443
 
+COPY ./configuration ./app/configuration
+
 WORKDIR /app
 
 RUN sudo update-alternatives --set iptables /usr/sbin/iptables-legacy

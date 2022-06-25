@@ -7,3 +7,4 @@ migrations/
 cert.pem
 key.pem
 todo.md 
+.env

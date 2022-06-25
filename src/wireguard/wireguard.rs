@@ -8,12 +8,10 @@ use tokio::sync::{Mutex};
 use std::process::{Command};
 use chrono::Utc;
 use reqwest;
-use std::env;
 
 use std::fs::File;
 use std::io::Write;
 
-use dotenv;
 use std::fs;
 use rcgen::generate_simple_self_signed;
 
@@ -73,115 +71,110 @@ impl WireGuardConfig {
     }
 
     pub async fn register_server(&mut self) -> &mut Self {
-        match env::var("RESEDA_AUTH") {
-            Ok(auth_token) => {
-                let client = reqwest::Client::new();
+        let client = reqwest::Client::new();
 
-                match client.post("https://api.cloudflare.com/client/v4/zones/ebb52f1687a35641237774c39391ba2a/dns_records")
-                    .body(format!("
-                    {{
-                        \"type\": \"A\",
-                        \"name\": \"{}.dns\",
-                        \"content\": \"{}\",
-                        \"ttl\": 3600,
-                        \"priority\": 10,
-                        \"proxied\": false
-                    }}", self.config.name, self.config.address))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", format!("Bearer {}", auth_token))
-                    .send().await {
-                        Ok(_) => {},
-                        Err(err) => {
-                            panic!("[err]: Error in setting non-proxied DNS {}", err)
-                        },
-                    }
+        match client.post("https://api.cloudflare.com/client/v4/zones/ebb52f1687a35641237774c39391ba2a/dns_records")
+            .body(format!("
+            {{
+                \"type\": \"A\",
+                \"name\": \"{}.dns\",
+                \"content\": \"{}\",
+                \"ttl\": 3600,
+                \"priority\": 10,
+                \"proxied\": false
+            }}", self.config.name, self.config.address))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", self.config.auth_token))
+            .send().await {
+                Ok(_) => {},
+                Err(err) => {
+                    panic!("[err]: Error in setting non-proxied DNS {}", err)
+                },
+            }
 
-                match client.post("https://api.cloudflare.com/client/v4/zones/ebb52f1687a35641237774c39391ba2a/dns_records")
-                    .body(format!("
-                    {{
-                        \"type\": \"A\",
-                        \"name\": \"{}\",
-                        \"content\": \"{}\",
-                        \"ttl\": 3600,
-                        \"priority\": 10,
-                        \"proxied\": true
-                    }}", self.config.name, self.config.address))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", format!("Bearer {}", auth_token))
-                    .send().await {
-                        Ok(_) => {},
-                        Err(err) => {
-                            panic!("[err]: Error in setting proxied DNS {}", err)
-                        },
-                    };
-                
-                let cert = generate_simple_self_signed(vec![format!("{}.reseda.app", self.config.name)]).unwrap();
-                let cert_public = cert.serialize_request_pem().unwrap();
-                let cert_private = cert.serialize_private_key_pem();
-                let cert_string = cert_public.replace("\r", "").split("\n").collect::<Vec<&str>>().join("\\n");
-                
-                match client.post("https://api.cloudflare.com/client/v4/certificates")
-                    .body(format!("
-                    {{
-                        \"hostnames\": [
-                            \"{}.reseda.app\"
-                        ],
-                        \"requested_validity\": 5475,
-                        \"request_type\": \"origin-rsa\",
-                        \"csr\": \"{}\"
-                    }}", self.config.name, cert_string))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", format!("Bearer {}", auth_token))
-                    .send().await {
-                        Ok(response) => {
-                            let r = response.json::<CloudflareReturn>().await;
+        match client.post("https://api.cloudflare.com/client/v4/zones/ebb52f1687a35641237774c39391ba2a/dns_records")
+            .body(format!("
+            {{
+                \"type\": \"A\",
+                \"name\": \"{}\",
+                \"content\": \"{}\",
+                \"ttl\": 3600,
+                \"priority\": 10,
+                \"proxied\": true
+            }}", self.config.name, self.config.address))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", self.config.auth_token))
+            .send().await {
+                Ok(_) => {},
+                Err(err) => {
+                    panic!("[err]: Error in setting proxied DNS {}", err)
+                },
+            };
+        
+        let cert = generate_simple_self_signed(vec![format!("{}.reseda.app", self.config.name)]).unwrap();
+        let cert_public = cert.serialize_request_pem().unwrap();
+        let cert_private = cert.serialize_private_key_pem();
+        let cert_string = cert_public.replace("\r", "").split("\n").collect::<Vec<&str>>().join("\\n");
+        
+        match client.post("https://api.cloudflare.com/client/v4/certificates")
+            .body(format!("
+            {{
+                \"hostnames\": [
+                    \"{}.reseda.app\"
+                ],
+                \"requested_validity\": 5475,
+                \"request_type\": \"origin-rsa\",
+                \"csr\": \"{}\"
+            }}", self.config.name, cert_string))
+            .header("Content-Type", "application/json")
+            .header("Authorization", format!("Bearer {}", self.config.auth_token))
+            .send().await {
+                Ok(response) => {
+                    let r = response.json::<CloudflareReturn>().await;
 
-                            match r {
-                                Ok(return_value) => {
-                                    if return_value.success == false {
-                                        println!("[err]: cloudlfare certificate creation FAILED, return value FAILURE. Reason: {:?}", return_value);
-                                    }
+                    match r {
+                        Ok(return_value) => {
+                            if return_value.success == false {
+                                println!("[err]: cloudlfare certificate creation FAILED, return value FAILURE. Reason: {:?}", return_value);
+                            }
 
-                                    match File::create("key.pem") {
-                                        Ok(mut output) => {
-                                            match write!(output, "{}", cert_private) {
-                                                Ok(_) => {},
-                                                Err(err) => {
-                                                    println!("[err]: Unable to write file file::key.pem; {}", err);
-                                                },
-                                            }
-                                        },
+                            match File::create("key.pem") {
+                                Ok(mut output) => {
+                                    match write!(output, "{}", cert_private) {
+                                        Ok(_) => {},
                                         Err(err) => {
-                                            println!("[err]: Unable to open file stream for file::key.pem; {}", err)
-                                        },
-                                    }
-
-                                    match File::create("cert.pem") {
-                                        Ok(mut output) => {
-                                            match write!(output, "{}", return_value.result.certificate) {
-                                                Ok(_) => {},
-                                                Err(err) => {
-                                                    println!("[err]: Unable to write file file::cert.pem; {}", err);
-                                                },
-                                            }
-                                        },
-                                        Err(err) => {
-                                            println!("[err]: Unable to open file stream for file::cert.pem; {}", err)
+                                            println!("[err]: Unable to write file file::key.pem; {}", err);
                                         },
                                     }
                                 },
                                 Err(err) => {
-                                    println!("[err]: Deserializing Cloudflare Result: {}", err);
-                                }
-                            };
+                                    println!("[err]: Unable to open file stream for file::key.pem; {}", err)
+                                },
+                            }
+
+                            match File::create("cert.pem") {
+                                Ok(mut output) => {
+                                    match write!(output, "{}", return_value.result.certificate) {
+                                        Ok(_) => {},
+                                        Err(err) => {
+                                            println!("[err]: Unable to write file file::cert.pem; {}", err);
+                                        },
+                                    }
+                                },
+                                Err(err) => {
+                                    println!("[err]: Unable to open file stream for file::cert.pem; {}", err)
+                                },
+                            }
                         },
                         Err(err) => {
-                            panic!("[err]: Error in setting proxied DNS {}", err)
-                        },
+                            println!("[err]: Deserializing Cloudflare Result: {}", err);
+                        }
                     };
-            },
-            Err(_) => panic!("[err]: Unable to start service, missing NAME env variable.")
-        }
+                },
+                Err(err) => {
+                    panic!("[err]: Error in setting proxied DNS {}", err)
+                },
+            };
 
         println!("[service]: Registered with Cloudflare. Ready for reseda-mesh registration...");
 

@@ -2,18 +2,11 @@ version: '3'
 
 services:
   reseda:
-    image: docker.io/unrealgdev/reseda-rust 
+    image: registry.digitalocean.com/reseda-contained/reseda-rust 
     container_name: reseda-rust
     cap_add:
       - NET_ADMIN
       - SYS_MODULE
-    environment:
-      - RESEDA_DB=$RESEDA_DB
-      - RESEDA_AUTH=$RESEDA_AUTH
-      - RESEDA_LOCATION=$LOCATION
-      - RESEDA_COUNTRY=$COUNTRY
-      - RESEDA_FLAG=$FLAG
-      - RESEDA_REGION_NAME=$REGION_NAME
     ports:
       - 51820:51820/udp
       - 80:80

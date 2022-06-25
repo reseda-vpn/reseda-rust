@@ -8,3 +8,6 @@
 *.reseda
 *.reseda
 secret.yml
+
+/configuration/base.yml
+configuration/base.yml

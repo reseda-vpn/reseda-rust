@@ -18,33 +18,6 @@ spec:
         io.kompose.service: reseda
     spec:
       containers:
-      - env:
-        - name: RESEDA_AUTH
-          valueFrom:
-            secretKeyRef:
-              name: reseda-secret
-              key: RESEDA_AUTH
-        - name: RESEDA_DB
-          valueFrom:
-              secretKeyRef:
-                name: reseda-secret
-                key: RESEDA_DB
-        - name: RESEDA_COUNTRY
-          configMapKeyRef:
-              key: COUNTRY
-              name: reseda-idts
-        - name: RESEDA_FLAG
-          configMapKeyRef:
-              key: FLAG
-              name: reseda-idts
-        - name: RESEDA_LOCATION
-          configMapKeyRef:
-              key: LOCATION
-              name: reseda-idts
-        - name: RESEDA_NAME
-          configMapKeyRef:
-              key: NAME
-              name: reseda-idts
         image: docker.io/unrealgdev/reseda-rust
         name: reseda-rust
         ports:

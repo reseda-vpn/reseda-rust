@@ -1,5 +1,4 @@
 use serde::{Serialize, Deserialize};
-use std::env;
 use std::process::{Command, Stdio};
 use std::io::{Write};
 
@@ -11,7 +10,9 @@ pub struct WireGuardConfigFile {
     pub post_down: String,
     pub listen_port: String,
     pub dns: String,
+
     pub database_url: String,
+    pub auth_token: String,
 
     pub location: String,
     pub country: String,
@@ -20,37 +21,49 @@ pub struct WireGuardConfigFile {
 
 impl WireGuardConfigFile {
     pub async fn from_environment() -> Self {
-        for (key, value) in env::vars() {
-            println!("{}: {}", key, value);
+        let mut settings = config::Config::default();
+
+        let base_path = std::env::current_dir().expect("Failed to determine the current directory");
+        let configuration_directory = base_path.join("configuration");
+
+        match settings.merge(config::File::from(configuration_directory.join("base")).required(true)) {
+            Ok(config) => {},
+            Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
         }
-        
-        // Redo from here
-        let location = match env::var("RESEDA_LOCATION") {
-            Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: RESEDA_LOCATION")
+
+        match settings.merge(config::File::from(configuration_directory.join("region")).required(true)) {
+            Ok(config) => {},
+            Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
+        }
+
+        let database_url = match settings.get_str("database_auth") {
+            Ok(val) => val,
+            Err(_) => panic!()
         };
 
-        let country = match env::var("RESEDA_COUNTRY") {
-            Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: RESEDA_COUNTRY")
+        let auth_token = match settings.get_str("mesh_auth") {
+            Ok(val) => val,
+            Err(_) => panic!()
         };
 
-        let flag = match env::var("RESEDA_FLAG") {
-            Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: RESEDA_FLAG")
+        let location = match settings.get_str("location") {
+            Ok(val) => val,
+            Err(_) => panic!()
         };
 
-        let name = match env::var("RESEDA_REGION_NAME") {
-            Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: RESEDA_REGION_NAME")
+        let country = match settings.get_str("country") {
+            Ok(val) => val,
+            Err(_) => panic!()
         };
 
-        // to here
-        // based on alternative model of a server registration
+        let flag = match settings.get_str("flag") {
+            Ok(val) => val,
+            Err(_) => panic!()
+        };
 
-        let database_url = match env::var("RESEDA_DB") {
-            Ok(value) => value,
-            Err(_) => panic!("Could not identify environment variable: DATABASE_URL")
+        let name = match settings.get_str("region") {
+            Ok(val) => val,
+            Err(_) => panic!()
         };
 
         match public_ip::addr().await {
@@ -65,6 +78,7 @@ impl WireGuardConfigFile {
                     dns: "1.1.1.1".to_string(),
                     listen_port: "51820".to_string(),
                     database_url: database_url,
+                    auth_token: auth_token,
 
                     location: location,
                     country: country,
