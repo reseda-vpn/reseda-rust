@@ -42,8 +42,6 @@ struct CloudflareResult {
 
 impl WireGuardConfig {
     pub async fn initialize() -> Self {
-        dotenv::dotenv().expect(".env file not found");
-        
         // Import configuration from environment
         let res = WireGuardConfigFile::from_environment().await;
         // Generate Keys

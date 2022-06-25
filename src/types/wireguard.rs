@@ -20,6 +20,10 @@ pub struct WireGuardConfigFile {
 
 impl WireGuardConfigFile {
     pub async fn from_environment() -> Self {
+        for (key, value) in env::vars() {
+            println!("{}: {}", key, value);
+        }
+        
         // Redo from here
         let location = match env::var("RESEDA_LOCATION") {
             Ok(value) => value,

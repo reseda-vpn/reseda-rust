@@ -29,19 +29,19 @@ spec:
               secretKeyRef:
                 name: reseda-secret
                 key: RESEDA_DB
-        - name: COUNTRY
+        - name: RESEDA_COUNTRY
           configMapKeyRef:
               key: COUNTRY
               name: reseda-idts
-        - name: FLAG
+        - name: RESEDA_FLAG
           configMapKeyRef:
               key: FLAG
               name: reseda-idts
-        - name: LOCATION
+        - name: RESEDA_LOCATION
           configMapKeyRef:
               key: LOCATION
               name: reseda-idts
-        - name: NAME
+        - name: RESEDA_NAME
           configMapKeyRef:
               key: NAME
               name: reseda-idts
