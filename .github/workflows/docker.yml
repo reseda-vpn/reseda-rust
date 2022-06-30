@@ -15,14 +15,14 @@ jobs:
       uses: docker/login-action@v2
       with:
         registry: registry.digitalocean.com
-        username: ${{ secrets.DO_TOKEN }}
-        password: ${{ secrets.DO_TOKEN }}
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
     -
       name: Checkout
       uses: actions/checkout@v3
     - 
       name: Build the Docker image
-      run: docker build . -t registry.digitalocean.com/reseda-contained/reseda-rust:latest --build-arg db=${{ secrets.DATABASE_URL }}
+      run: docker build . -t unrealgdev/reseda-rust:latest --build-arg db=${{ secrets.DATABASE_URL }}
     -
       name: Push the Docker image
-      run: docker push registry.digitalocean.com/reseda-contained/reseda-rust
+      run: docker push unrealgdev/reseda-rust:latest
