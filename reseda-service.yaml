@@ -10,10 +10,10 @@ metadata:
   name: reseda
 spec:
   ports:
-  - name: "51820"
-    port: 51820
+  - name: "8443"
+    port: 8443
     protocol: UDP
-    targetPort: 51820
+    targetPort: 8443
   - name: "80"
     port: 80
     targetPort: 80

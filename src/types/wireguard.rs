@@ -76,7 +76,7 @@ impl WireGuardConfigFile {
                     post_up: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
                     post_down: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
                     dns: "1.1.1.1".to_string(),
-                    listen_port: "51820".to_string(),
+                    listen_port: "8443".to_string(),
                     database_url: database_url,
                     auth_token: auth_token,
 

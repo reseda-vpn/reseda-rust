@@ -78,7 +78,7 @@ RUN \
 COPY --from=builder /app/target/release/reseda-rust ./app
 
 # ports and volumes
-EXPOSE 51820/udp
+EXPOSE 8443/udp
 EXPOSE 80
 EXPOSE 443
 

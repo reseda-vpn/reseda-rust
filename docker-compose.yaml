@@ -8,7 +8,7 @@ services:
       - NET_ADMIN
       - SYS_MODULE
     ports:
-      - 51820:51820/udp
+      - 8443:8443/udp
       - 80:80
       - 443:443
     sysctls:

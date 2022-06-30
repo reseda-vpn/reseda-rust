@@ -21,7 +21,7 @@ spec:
         image: docker.io/unrealgdev/reseda-rust
         name: reseda-rust
         ports:
-        - containerPort: 51820
+        - containerPort: 8443
           protocol: UDP
         - containerPort: 80
         - containerPort: 443
