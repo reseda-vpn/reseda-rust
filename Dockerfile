@@ -82,7 +82,11 @@ EXPOSE 8443/udp
 EXPOSE 80
 EXPOSE 443
 
-COPY ./configuration ./app/configuration
+ARG mesh_auth
+ARG access_key
+
+RUN mkdir ./app/configuration
+RUN echo 'mesh_auth: "${mesh_auth}" \ndatabase_auth: "${db}"\n access_key: "${access_key}"' > ./app/configuration/base.yml
 
 WORKDIR /app
 

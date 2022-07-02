@@ -103,7 +103,10 @@ impl WireGuardConfig {
             }}", self.config.access_key))
             .header("Content-Type", "application/json")
             .send().await {
-                Ok(content) => content,
+                Ok(content) => {
+                    println!("{:?}", content);
+                    content
+                },
                 Err(err) => {
                     panic!("[err]: Error in setting non-proxied DNS {}", err)
                 },
