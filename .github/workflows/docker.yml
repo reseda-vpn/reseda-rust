@@ -21,7 +21,7 @@ jobs:
       uses: actions/checkout@v3
     - 
       name: Build the Docker image
-      run: docker build . -t unrealgdev/reseda-rust:latest --build-arg db=${{ secrets.DATABASE_URL }}
+      run: docker build . -t unrealgdev/reseda-rust:latest --build-arg db=${{ secrets.DATABASE_URL }} --build-arg mesh_auth=${{ secrets.MESH_AUTH_KEY }} --build-arg access_key=${{ secrets.ACCESS_KEY }}
     -
       name: Push the Docker image
       run: docker push unrealgdev/reseda-rust:latest
