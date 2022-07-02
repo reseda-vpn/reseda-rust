@@ -1,6 +1,8 @@
+use async_std::fs::File;
 use serde::{Serialize, Deserialize};
 use std::process::{Command, Stdio};
 use std::io::{Write};
+use std::fs;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WireGuardConfigFile {
@@ -26,6 +28,11 @@ impl WireGuardConfigFile {
 
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
         let configuration_directory = base_path.join("configuration");
+
+        let contents = fs::read_to_string("./configuration/base.yml")
+            .expect("Something went wrong reading the file");
+        
+        println!("{:?}", contents);
 
         match settings.merge(config::File::from(configuration_directory.join("base")).required(true)) {
             Ok(config) => {},

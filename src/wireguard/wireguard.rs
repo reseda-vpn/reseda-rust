@@ -99,20 +99,19 @@ impl WireGuardConfig {
         let information = match client.post(format!("https://mesh.reseda.app/register/{}", self.config.address))
             .body(format!("
             {{
-                \"auth\": \"{}\",
+                \"auth\": \"{}\"
             }}", self.config.access_key))
             .header("Content-Type", "application/json")
             .send().await {
                 Ok(content) => {
-                    println!("{:?}", content);
-                    content
+                    content.text().await.expect("Failed to convert response object to text")
                 },
                 Err(err) => {
                     panic!("[err]: Error in setting non-proxied DNS {}", err)
                 },
             };
-
-        let registration_return = match information.json::<RegistryReturn>().await {
+        
+        let registration_return: RegistryReturn = match serde_json::from_str(&information) {
             Ok(val) => val,
             Err(err) => panic!("{}", format!("Failed to parse server registration: {:?}", err))
         };
