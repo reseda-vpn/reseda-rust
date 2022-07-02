@@ -13,6 +13,7 @@ pub struct WireGuardConfigFile {
 
     pub database_url: String,
     pub auth_token: String,
+    pub access_key: String,
 
     pub location: String,
     pub country: String,
@@ -31,11 +32,6 @@ impl WireGuardConfigFile {
             Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
         }
 
-        match settings.merge(config::File::from(configuration_directory.join("region")).required(true)) {
-            Ok(config) => {},
-            Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
-        }
-
         let database_url = match settings.get_str("database_auth") {
             Ok(val) => val,
             Err(_) => panic!()
@@ -46,22 +42,7 @@ impl WireGuardConfigFile {
             Err(_) => panic!()
         };
 
-        let location = match settings.get_str("location") {
-            Ok(val) => val,
-            Err(_) => panic!()
-        };
-
-        let country = match settings.get_str("country") {
-            Ok(val) => val,
-            Err(_) => panic!()
-        };
-
-        let flag = match settings.get_str("flag") {
-            Ok(val) => val,
-            Err(_) => panic!()
-        };
-
-        let name = match settings.get_str("region") {
+        let access_key = match settings.get_str("access_key") {
             Ok(val) => val,
             Err(_) => panic!()
         };
@@ -71,7 +52,7 @@ impl WireGuardConfigFile {
                 let ip_addr = ip.to_string();
 
                 Self {
-                    name: name,
+                    name: "".to_string(),
                     address: ip_addr,
                     post_up: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
                     post_down: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
@@ -79,10 +60,11 @@ impl WireGuardConfigFile {
                     listen_port: "8443".to_string(),
                     database_url: database_url,
                     auth_token: auth_token,
+                    access_key: access_key,
 
-                    location: location,
-                    country: country,
-                    flag: flag
+                    location: "".to_string(),
+                    country: "".to_string(),
+                    flag: "".to_string()
                 }
             },
             None => panic!("[err]: Unable to retrieve IP address.")

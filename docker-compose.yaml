@@ -2,7 +2,7 @@ version: '3'
 
 services:
   reseda:
-    image: registry.digitalocean.com/reseda-contained/reseda-rust 
+    image: unrealgdev/reseda-rust 
     container_name: reseda-rust
     cap_add:
       - NET_ADMIN
