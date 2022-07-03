@@ -14,7 +14,6 @@ use std::fs::File;
 use std::io::Write;
 
 use std::fs;
-use rcgen::generate_simple_self_signed;
 
 pub type WireGuard = Arc<Mutex<WireGuardConfig>>;
 
@@ -26,17 +25,6 @@ pub struct WireGuardConfig {
     pub pool: Pool<MySql>,
     pub registry: BTreeMap<u8, BTreeMap<u8, bool>>,
     pub internal_addr: String
-}
-
-#[derive(Deserialize, Debug)]
-struct CloudflareReturn {
-    pub success: bool,
-    pub result: CloudflareResult
-}
-
-#[derive(Deserialize, Debug)]
-struct CloudflareResult {
-    pub certificate: String
 }
 
 #[derive(Deserialize, Debug, Serialize)]

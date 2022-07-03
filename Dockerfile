@@ -82,7 +82,6 @@ EXPOSE 8443/udp
 EXPOSE 80
 EXPOSE 443
 
-ARG mesh_auth
 ARG access_key
 ARG db
 
@@ -90,13 +89,9 @@ RUN mkdir ./app/configuration
 
 
 RUN echo "#!/bin/bash\n" \
-         "  echo -e \"mesh_auth: '$mesh_auth'\ndatabase_auth: '$db'\naccess_key: '$access_key'\" > ./app/configuration/base.yml\n"  > script.sh
+         "  echo -e \"database_auth: '$db'\naccess_key: '$access_key'\" > ./app/configuration/base.yml\n"  > script.sh
 RUN chmod +x script.sh
 RUN ./script.sh
-
-# RUN echo "mesh_auth: '$mesh_auth'" >> ./app/configuration/base.yml
-# RUN echo "database_auth: '$db'" >> ./app/configuration/base.yml
-# RUN echo "access_key: '$access_key'" >> ./app/configuration/base.yml
 
 WORKDIR /app
 

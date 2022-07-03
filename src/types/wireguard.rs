@@ -1,8 +1,6 @@
-use async_std::fs::File;
 use serde::{Serialize, Deserialize};
 use std::process::{Command, Stdio};
 use std::io::{Write};
-use std::fs;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WireGuardConfigFile {
@@ -14,7 +12,6 @@ pub struct WireGuardConfigFile {
     pub dns: String,
 
     pub database_url: String,
-    pub auth_token: String,
     pub access_key: String,
 
     pub location: String,
@@ -29,22 +26,12 @@ impl WireGuardConfigFile {
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
         let configuration_directory = base_path.join("configuration");
 
-        let contents = fs::read_to_string("./configuration/base.yml")
-            .expect("Something went wrong reading the file");
-        
-        println!("{:?}", contents);
-
         match settings.merge(config::File::from(configuration_directory.join("base")).required(true)) {
-            Ok(config) => {},
+            Ok(_) => {},
             Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
         }
 
         let database_url = match settings.get_str("database_auth") {
-            Ok(val) => val,
-            Err(_) => panic!()
-        };
-
-        let auth_token = match settings.get_str("mesh_auth") {
             Ok(val) => val,
             Err(_) => panic!()
         };
@@ -66,7 +53,6 @@ impl WireGuardConfigFile {
                     dns: "1.1.1.1".to_string(),
                     listen_port: "8443".to_string(),
                     database_url: database_url,
-                    auth_token: auth_token,
                     access_key: access_key,
 
                     location: "".to_string(),
