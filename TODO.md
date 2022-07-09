@@ -30,23 +30,8 @@ Reseda VPN Tasks: (One Completed, Server is Finished)
 
 ✅ Register Server
 
-- Change from .env file to docker file environment variables that can be passed in on compile time for the items that are not pre-baked, such as the conenction strings.
---- This means that we can create a github action to precompile and push the docker image so that the containers can be largely minified.
-Therefore, the only thing that needs to happen is a container pull, set env variables and go. 
-
-i.e.
-hapi_server:
-  container_name: hapi_server
-  image: node_image
-  environment:
-    - HAPI_DB_CONNECT=${NODE_DB_CONNECT}
-  expose:
-    - "3000"
-
-where the environments are set by the env file...?
-
 - Integrate Usage as a [Collective], Not a [Singular] (Session to Global)
 
-- Integrate for k8 clusters
+✅ Integrate for k8 clusters
 
 - Tunnel Chaining

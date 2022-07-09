@@ -17,7 +17,6 @@ async fn main() {
     let config: WireGuard = Arc::new(
         Mutex::new(
             WireGuardConfig::initialize().await
-                .register_server().await
                 .save_config(true).await
                 .to_owned()
         )
@@ -35,7 +34,11 @@ async fn main() {
         .and(opt_query)
         .and_then(lib::ws_handler);
 
-    let routes = ws_route.with(warp::cors().allow_any_origin());
+    let health_route = warp::path("/health")
+        .and(with_config(config.clone()))
+        .and_then(lib::health_status);
+
+    let routes = ws_route.or(health_route).with(warp::cors().allow_any_origin());
 
     tokio::spawn(async move {
         loop {

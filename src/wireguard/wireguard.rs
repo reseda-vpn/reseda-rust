@@ -22,12 +22,15 @@ pub struct WireGuardConfig {
     pub config: WireGuardConfigFile,
     pub keys: KeyState,
     pub clients: Clients,
+
     pub pool: Pool<MySql>,
     pub registry: BTreeMap<u8, BTreeMap<u8, bool>>,
-    pub internal_addr: String
+    pub internal_addr: String,
+
+    pub information: RegistryReturn
 }
 
-#[derive(Deserialize, Debug, Serialize)]
+#[derive(Deserialize, Debug, Serialize, Clone)]
 pub struct IpResponse {
     pub country: String,
     pub region: String,
@@ -40,11 +43,15 @@ pub struct IpResponse {
     pub timezone: String
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct RegistryReturn {
     pub key: String,
     pub cert: String,
     pub ip: String,
+
+    pub record_id: String,
+    pub cert_id: String,
+
     pub res: IpResponse,
     pub id: String
 }
@@ -70,6 +77,8 @@ impl WireGuardConfig {
                 }
         };
 
+        let registry_return = WireGuardConfig::register_server(&res).await;
+
         // Return Configuration
         WireGuardConfig {
             config: res,
@@ -77,18 +86,19 @@ impl WireGuardConfig {
             clients: Arc::new(Mutex::new(HashMap::new())),
             pool: pool,
             registry: registry,
-            internal_addr: "10.8.2.1".to_string()
+            internal_addr: "10.8.2.1".to_string(),
+            information: registry_return
         }
     }
 
-    pub async fn register_server(&mut self) -> &mut Self {
+    pub async fn register_server(config: &WireGuardConfigFile) -> RegistryReturn {
         let client = reqwest::Client::new();
 
-        let information = match client.post(format!("https://mesh.reseda.app/register/{}", self.config.address))
+        let information = match client.post(format!("https://mesh.reseda.app/register/{}", config.address))
             .body(format!("
             {{
                 \"auth\": \"{}\"
-            }}", self.config.access_key))
+            }}", config.access_key))
             .header("Content-Type", "application/json")
             .send().await {
                 Ok(content) => {
@@ -132,7 +142,7 @@ impl WireGuardConfig {
             },
         };
 
-        self
+        registration_return
     }
 
     pub fn init_registry(highest: u8) -> BTreeMap<u8, BTreeMap<u8, bool>> {
