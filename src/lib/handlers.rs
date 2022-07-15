@@ -1,7 +1,6 @@
 use std::convert::Infallible;
 
 use crate::{Result as WsResult, types::QueryParameters, wireguard::WireGuard};
-use hyper::StatusCode;
 use serde::Serialize;
 use warp::reply::json as json_reply;
 use warp::Reply;

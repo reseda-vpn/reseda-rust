@@ -43,7 +43,7 @@ pub struct IpResponse {
     pub timezone: String
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct RegistryReturn {
     pub key: String,
     pub cert: String,
@@ -142,6 +142,8 @@ impl WireGuardConfig {
             },
         };
 
+        println!("Registration Complete: {:?}", registration_return);
+
         registration_return
     }
 
@@ -230,10 +232,10 @@ impl WireGuardConfig {
                     .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")
                     .args(["set", "reseda", "peer", &client.public_key, "allowed-ips", &format!("10.8.{}.{}", connection.a, connection.b), "persistent-keepalive", "25"]).output() {
                         Ok(output) => {
-                            println!("[wg]: Add Peer: {:?}", output);
+                            println!("[wg]: wg-quick: Add Peer: {:?}", output);
                         }
                         Err(err) => {
-                            println!("[wg]: Failed to bring up reseda server, {:?}", err);
+                            println!("[wg]: wg-quick: Failed to bring up reseda server, {:?}", err);
                         }
                 }
             },
@@ -245,12 +247,12 @@ impl WireGuardConfig {
         match Command::new("wg-quick")
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
             .args(["up", "reseda"]).output() {
-                Ok(output) => {
-                    println!("[wg]: wg-quick up: {:?}", output);
+                Ok(_) => {
+                    println!("[wg]: wg-quick: up");
                     true
                 }
                 Err(err) => {
-                    println!("[wg]: Failed to bring up reseda server, {:?}", err);
+                    println!("[wg]: wg-quick: Failed to bring up reseda server, {:?}", err);
                     false
                 }
         }
@@ -261,12 +263,12 @@ impl WireGuardConfig {
             .env("export WG_I_PREFER_BUGGY_USERSPACE_TO_POLISHED_KMOD", "1")    
             .args(["down", "reseda"])
             .output() {
-            Ok(output) => {
-                println!("[wg] wg-quick down: {:?}", output);
+            Ok(_) => {
+                println!("[wg] wg-quick: down");
                 true
             }
             Err(err) => {
-                println!("[wg]: Failed to take down reseda server, {:?}", err);
+                println!("[wg]: wg-quick: Failed to take down reseda server, {:?}", err);
                 false
             }
         }
