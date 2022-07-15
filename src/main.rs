@@ -34,7 +34,7 @@ async fn main() {
         .and(opt_query)
         .and_then(lib::ws_handler);
 
-    let health_route = warp::path("/health")
+    let health_route = warp::path("health")
         .and(with_config(config.clone()))
         .and_then(lib::health_status);
 
