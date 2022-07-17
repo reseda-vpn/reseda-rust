@@ -4,6 +4,7 @@ use crate::{Result as WsResult, types::QueryParameters, wireguard::WireGuard};
 use serde::Serialize;
 use warp::reply::json as json_reply;
 use warp::Reply;
+use warp::{http::StatusCode};
 
 use super::client_connection;
 
@@ -25,6 +26,7 @@ pub struct NodeResponse {
 
 pub async fn health_status(config: WireGuard) -> Result<Box<dyn warp::Reply>, Infallible> {
     let data = config.lock().await;
+    
     let health_response = NodeResponse { 
         status: "OK".to_string(),
         usage: data.clients.lock().await.len().to_string(),
@@ -35,4 +37,8 @@ pub async fn health_status(config: WireGuard) -> Result<Box<dyn warp::Reply>, In
     };
 
     Ok(Box::new(json_reply(&health_response)))
+}
+
+pub async fn echo() -> Result<Box<dyn warp::Reply>, Infallible> {
+    Ok(Box::new(StatusCode::OK))
 }

@@ -28,17 +28,21 @@ async fn main() {
         .map(Some)
         .or_else(|_| async { Ok::<(Option<QueryParameters>,), std::convert::Infallible>((None,)) });
 
-    let ws_route = warp::path::end()
+    let ws_route = warp::path::path("ws")
         .and(warp::ws())
         .and(with_config(config.clone()))
         .and(opt_query)
         .and_then(lib::ws_handler);
 
+    let echo_route =  warp::path::end()
+        .and(warp::get())
+        .and_then(lib::echo);
+
     let health_route = warp::path("health")
         .and(with_config(config.clone()))
         .and_then(lib::health_status);
 
-    let routes = ws_route.or(health_route).with(warp::cors().allow_any_origin());
+    let routes = ws_route.or(echo_route).or(health_route).with(warp::cors().allow_any_origin());
 
     tokio::spawn(async move {
         loop {
