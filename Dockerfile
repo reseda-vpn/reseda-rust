@@ -87,7 +87,6 @@ ARG db
 
 RUN mkdir ./app/configuration
 
-
 RUN echo "#!/bin/bash\n" \
          "  echo -e \"database_auth: '$db'\naccess_key: '$access_key'\" > ./app/configuration/base.yml\n"  > script.sh
 RUN chmod +x script.sh
