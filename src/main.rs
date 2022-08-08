@@ -73,8 +73,11 @@ async fn main() {
                                                             println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...")
                                                         },
                                                         Connection::Connected(connection) => {
+                                                            println!("[info]: Removing Connected User 1");
                                                             config.lock().await.free_slot(connection);
+                                                            println!("[info]: Removing Connected User 2");
                                                             client.set_connectivity(Connection::Disconnected);
+                                                            println!("[info]: Removing Connected User 3");
                                                             config.lock().await.remove_peer(&client).await;
                                                         },
                                                     }

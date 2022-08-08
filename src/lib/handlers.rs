@@ -25,7 +25,9 @@ pub struct NodeResponse {
 }
 
 pub async fn health_status(config: WireGuard) -> Result<Box<dyn warp::Reply>, Infallible> {
+    println!("Recieved Health Call, obtaining datalock...");
     let data = config.lock().await;
+    println!("Obtained datalock...");
     
     let health_response = NodeResponse { 
         status: "OK".to_string(),
