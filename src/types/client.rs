@@ -131,7 +131,7 @@ impl Client {
         self.usage.up = *up;
 
         if self.maximums == Maximums::Pro || self.maximums == Maximums::Basic {
-            return true;
+            return false;
         }
 
         // If plan is not PRO or BASIC, do The following to check if they have exceeded thier bandwith allocation.

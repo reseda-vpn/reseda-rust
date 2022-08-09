@@ -76,7 +76,8 @@ async fn main() {
                                                             println!("[info]: Removing Connected User 1");
                                                             config.lock().await.free_slot(connection);
                                                             println!("[info]: Removing Connected User 2");
-                                                            client.set_connectivity(Connection::Disconnected);
+                                                            // Deadlock occurs here.
+                                                            config.lock().await.clients.lock().await.get_mut(&vec[0].to_string()).expect("Was unable to find client to set connection to Disconnected.").set_connectivity(Connection::Disconnected);
                                                             println!("[info]: Removing Connected User 3");
                                                             config.lock().await.remove_peer(&client).await;
                                                         },
