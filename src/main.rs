@@ -60,49 +60,59 @@ async fn main() {
                                     let split_vector = line.trim().split("\t");
                                     let vec: Vec<&str> = split_vector.collect();
 
-                                    match config.lock().await.clients.lock().await.get_mut(&vec[0].to_string()) {
+                                    let mut config_lock = config.lock().await; 
+
+                                    let config_clone = config_lock.clone();
+                                    let mut clients_lock = config_clone.clients.lock().await;
+
+                                    let client = match clients_lock.get_mut(&vec[0].to_string()) {
                                         Some(client) => {
-                                            let up = vec[1].parse::<i128>().unwrap();
-                                            let down = vec[2].parse::<i128>().unwrap();
-
-                                            match client.set_usage(&up, &down) {
-                                                true => {
-                                                    println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
-                                                    match &client.connected {
-                                                        Connection::Disconnected => {
-                                                            println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...")
-                                                        },
-                                                        Connection::Connected(connection) => {
-                                                            println!("[info]: Removing Connected User 1");
-                                                            config.lock().await.free_slot(connection);
-                                                            println!("[info]: Removing Connected User 2");
-                                                            // Deadlock occurs here.
-                                                            config.lock().await.clients.lock().await.get_mut(&vec[0].to_string()).expect("Was unable to find client to set connection to Disconnected.").set_connectivity(Connection::Disconnected);
-                                                            println!("[info]: Removing Connected User 3");
-                                                            config.lock().await.remove_peer(&client).await;
-                                                        },
-                                                    }
-                                                }
-                                                false => {
-                                                    let message = format!("{{ \"message\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
-
-                                                    if let Some(sender) = &client.sender {
-                                                        match sender.send(Ok(Message::text(message))) {
-                                                            Ok(_) => {
-                                                                println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(), up, down);
-                                                            }
-                                                            Err(e) => {
-                                                                println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                            client
                                         },
                                         None => {
-                                            println!("[err]: No user matched for this!")
+                                            println!("[err]: No user matched for this!");
+                                            break
                                         },
+                                    };
+
+                                    let up = vec[1].parse::<i128>().unwrap();
+                                    let down = vec[2].parse::<i128>().unwrap();
+
+                                    let usage_query = client.set_usage(&up, &down);
+
+                                    // If a usage could not be set...
+                                    if usage_query == false {
+                                        let message = format!("{{ \"message\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
+                                    
+                                        if let Some(sender) = &client.sender {
+                                            match sender.send(Ok(Message::text(message))) {
+                                                Ok(_) => {
+                                                    println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(), up, down);
+                                                }
+                                                Err(e) => {
+                                                    println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                }
+                                            }
+                                        }
+
+                                        break
                                     }
+
+                                    println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
+                                    
+                                    match &client.connected {
+                                        Connection::Disconnected => {
+                                            println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...")
+                                        },
+                                        Connection::Connected(connection) => {
+                                            println!("[info]: Removing Connected User 1");
+                                            config_lock.free_slot(connection);
+                                            println!("[info]: Removing Connected User 2");
+                                            client.set_connectivity(Connection::Disconnected);
+                                            println!("[info]: Removing Connected User 3");
+                                            config_lock.remove_peer(&client).await;
+                                        },
+                                    };
                                 }
                             }
                             Err(err) => {
