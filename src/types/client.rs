@@ -18,10 +18,10 @@ impl Maximums {
     pub fn to_value(&self) -> i128 {
         match self {
             // 5GB
-            Self::Free => 5368709120,
+            Self::Free => 5000000000,
 
             // 50GB
-            Self::Supporter => 53687091200,
+            Self::Supporter => 50000000000,
 
             // -1 means IGNORE for the time, such that it does not have a data cap.
             Self::Basic => -1,
