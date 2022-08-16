@@ -118,6 +118,10 @@ async fn main() {
                                                 }
                                             }
 
+                                            // Add a delay that is non-stalling for the thread.
+
+                                            Delay::new(Duration::from_millis(1000)).await;
+
                                             config_lock.free_slot(connection);
                                             client.set_connectivity(Connection::Disconnected);
                                             config_lock.remove_peer(&client).await;
