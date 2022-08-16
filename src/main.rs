@@ -118,12 +118,13 @@ async fn main() {
                                                 }
                                             }
 
+                                            let connection_clone = connection.clone();
+
                                             // Add a delay that is non-stalling for the thread.
+                                            client.set_connectivity(Connection::Disconnected);
 
                                             Delay::new(Duration::from_millis(1000)).await;
-
-                                            config_lock.free_slot(connection);
-                                            client.set_connectivity(Connection::Disconnected);
+                                            config_lock.free_slot(&connection_clone);
                                             config_lock.remove_peer(&client).await;
                                         },
                                     };
