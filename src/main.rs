@@ -99,35 +99,35 @@ async fn main() {
                                     }
 
                                     println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
-                                    
-                                    match &client.connected {
-                                        Connection::Disconnected => {
-                                            println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...")
-                                        },
-                                        Connection::Connected(connection) => {
-                                            let message = format!("{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}");
 
-                                            if let Some(sender) = &client.sender {
-                                                match sender.send(Ok(Message::text(message))) {
-                                                    Ok(_) => {
-                                                        println!("[messaging]: User exceeded usage and was send a disconnection warning.");
-                                                    }
-                                                    Err(e) => {
-                                                        println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
-                                                    }
-                                                }
+                                    let conn = client.connected.clone();
+
+                                    if conn == Connection::Disconnected {
+                                        println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
+                                        break
+                                    }
+
+                                    let Connection::Connected(val) = conn;
+
+                                    let message = format!("{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}");
+
+                                    if let Some(sender) = &client.sender {
+                                        match sender.send(Ok(Message::text(message))) {
+                                            Ok(_) => {
+                                                println!("[messaging]: User exceeded usage and was send a disconnection warning.");
                                             }
-
-                                            let connection_clone = connection.clone();
-
-                                            // Add a delay that is non-stalling for the thread.
-                                            client.set_connectivity(Connection::Disconnected);
-
-                                            Delay::new(Duration::from_millis(1000)).await;
-                                            config_lock.free_slot(&connection_clone);
-                                            config_lock.remove_peer(&client).await;
-                                        },
+                                            Err(e) => {
+                                                println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                            }
+                                        }
                                     };
+
+                                    // Add a delay that is non-stalling for the thread.
+                                    client.set_connectivity(Connection::Disconnected);
+
+                                    Delay::new(Duration::from_millis(1000)).await;
+                                    config_lock.free_slot(&val);
+                                    config_lock.remove_peer(&client).await;
                                 }
                             }
                             Err(err) => {

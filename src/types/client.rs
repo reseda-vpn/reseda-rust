@@ -37,7 +37,7 @@ impl Maximums {
 }
 
 // By choosing integers with the propper bounds, we cannot go out of bounds of the IP scope.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Host {
     pub a: u8,
     pub b: u8,
@@ -63,7 +63,7 @@ pub enum Slot {
 //     pub host: Host
 // }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Connection {
     Disconnected,
     Connected(Host)
