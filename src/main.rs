@@ -107,27 +107,27 @@ async fn main() {
                                         break
                                     }
 
-                                    let Connection::Connected(val) = conn;
+                                    if let Connection::Connected(val) = conn {
+                                        let message = format!("{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}");
 
-                                    let message = format!("{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}");
-
-                                    if let Some(sender) = &client.sender {
-                                        match sender.send(Ok(Message::text(message))) {
-                                            Ok(_) => {
-                                                println!("[messaging]: User exceeded usage and was send a disconnection warning.");
+                                        if let Some(sender) = &client.sender {
+                                            match sender.send(Ok(Message::text(message))) {
+                                                Ok(_) => {
+                                                    println!("[messaging]: User exceeded usage and was send a disconnection warning.");
+                                                }
+                                                Err(e) => {
+                                                    println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                }
                                             }
-                                            Err(e) => {
-                                                println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
-                                            }
-                                        }
+                                        };
+    
+                                        // Add a delay that is non-stalling for the thread.
+                                        client.set_connectivity(Connection::Disconnected);
+    
+                                        Delay::new(Duration::from_millis(1000)).await;
+                                        config_lock.free_slot(&val);
+                                        config_lock.remove_peer(&client).await;
                                     };
-
-                                    // Add a delay that is non-stalling for the thread.
-                                    client.set_connectivity(Connection::Disconnected);
-
-                                    Delay::new(Duration::from_millis(1000)).await;
-                                    config_lock.free_slot(&val);
-                                    config_lock.remove_peer(&client).await;
                                 }
                             }
                             Err(err) => {
