@@ -7,10 +7,10 @@ use super::Usage;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Maximums {
-    Free,
-    Supporter,
-    Basic,
-    Pro,
+    Free(i128, i128),
+    Supporter(i128, i128),
+    Basic(i128, i128),
+    Pro(i128, i128),
     Unassigned
 } 
 
@@ -18,14 +18,22 @@ impl Maximums {
     pub fn to_value(&self) -> i128 {
         match self {
             // 5GB
-            Self::Free => 5000000000,
+            Self::Free(_up, down) => {
+                let maximum_allowance = 5000000000;
+                let allowed_excess = maximum_allowance - down;
+                allowed_excess.into()
+            },
 
             // 50GB
-            Self::Supporter => 50000000000,
+            Self::Supporter(_up, down) => {
+                let maximum_allowance = 50000000000;
+                let allowed_excess = maximum_allowance - down;
+                allowed_excess.into()
+            },
 
             // -1 means IGNORE for the time, such that it does not have a data cap.
-            Self::Basic => -1,
-            Self::Pro => -1,
+            Self::Basic(..) => -1,
+            Self::Pro(..) => -1,
 
             // This is the state that occurs when a user connects but is awaiting their tier to be assigned.
             // We give them a small allowance first, without having a verified account, this is small enough
@@ -130,17 +138,25 @@ impl Client {
         self.usage.down = *down;
         self.usage.up = *up;
 
-        if self.maximums == Maximums::Pro || self.maximums == Maximums::Basic {
-            return false;
-        }
+        match self.maximums {
+            Maximums::Pro(..) => {
+                return false;
+            },
+            Maximums::Basic(..) => {
+                return false;
+            },
+            Maximums::Free(..) | Maximums::Supporter(..) => {
+                let max: i128 = self.maximums.to_value();
 
-        // If plan is not PRO or BASIC, do The following to check if they have exceeded thier bandwith allocation.
-        let max: i128 = self.maximums.to_value();
-
-        if max > *up && max > *down {
-            false
-        }else {
-            true
+                if max > *up && max > *down {
+                    false
+                }else {
+                    true
+                }
+            },
+            Maximums::Unassigned => {
+                true
+            }
         }
     }
 

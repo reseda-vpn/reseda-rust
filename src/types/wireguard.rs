@@ -31,12 +31,12 @@ impl WireGuardConfigFile {
             Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
         }
 
-        let database_url = match settings.get_str("database_auth") {
+        let database_url = match settings.get_string("database_auth") {
             Ok(val) => val,
             Err(_) => panic!()
         };
 
-        let access_key = match settings.get_str("access_key") {
+        let access_key = match settings.get_string("access_key") {
             Ok(val) => val,
             Err(_) => panic!()
         };
