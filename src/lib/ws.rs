@@ -226,17 +226,36 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                                     match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
                                         .execute(&mut transaction)
                                         .await {
-                                            Ok(result) => {
+                                            Ok(_returned_information) => {
                                                 match transaction.commit().await {
                                                     Ok(r2) => {
-                                                        println!("[sqlx]: Usage Log Transaction Result: {:?}, {:?}", result, r2);
-                                                    },
-                                                    Err(error) => println!("[sqlx]: Transaction Commitance Error: {:?}", error),
-                                                }
+                                                        println!("[sqlx]: Usage Log Transaction Result: {:?}", r2);
 
+                                                        match reqwest::Client::new()
+                                                            .post("https://reseda.app/api/billing/usage-reccord")
+                                                            .json(&serde_json::json!({
+                                                                "sessionId": session_id,
+                                                            }))
+                                                            .send()
+                                                            .await {
+                                                                Ok(r) => {
+                                                                    match r.text().await {
+                                                                        Ok(_) => {
+                                                                            // Success!
+                                                                        },
+                                                                        Err(error) => println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error),
+                                                                    };
+                                                                },
+                                                                Err(error) => {
+                                                                    println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error)
+                                                                },
+                                                            }
+                                                    },
+                                                    Err(error) => println!("[sqlx]: Transaction Commit Error: {:?}", error),
+                                                }
                                             },
-                                            Err(error) => println!("[sqlx]: Transaction Error: {:?}", error),
-                                        }
+                                            Err(error) => println!("[sqlx]: Transaction Commit Error: {:?}", error),
+                                        };
                                 },
                                 Err(err) => {
                                     println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);

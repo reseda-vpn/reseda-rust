@@ -30,7 +30,7 @@ Reseda VPN Tasks: (One Completed, Server is Finished)
 
 ✅ Register Server
 
-- Integrate Usage as a [Collective], Not a [Singular] (Session to Global)
+✅ Integrate Usage as a [Collective], Not a [Singular] (Session to Global)
 
 ✅ Integrate for k8 clusters
 
