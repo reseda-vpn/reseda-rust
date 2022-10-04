@@ -112,6 +112,8 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                                     Ok(query) => {
                                         let tier = query.tier.as_str();
 
+                                        println!("[msg]: User is of {} tier", &tier);
+
                                         let argument_tier = match tier {
                                             "FREE" => types::Maximums::Free(usage.0, usage.1),
                                             "PRO" => types::Maximums::Pro(usage.0, usage.1),
@@ -242,6 +244,8 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
                                                                     match r.text().await {
                                                                         Ok(_) => {
                                                                             // Success!
+                                                                            // Here the Reseda API has published the usage-reccord of the service to stripe, thus meaning that the users logging has been billed to them.
+                                                                            // Notably, if the user is under a FREE or SUPPORTER tier, they will not be charged anything, as the API will return a ERROR:400, indicating failure to recognise a valid stripe subscription to thier billing profile.
                                                                         },
                                                                         Err(error) => println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error),
                                                                     };

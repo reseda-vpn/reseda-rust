@@ -80,7 +80,7 @@ async fn main() {
 
                                     let usage_query = client.set_usage(&up, &down);
 
-                                    // If a usage could not be set...
+                                    // If a usage could be set...
                                     if usage_query == false {
                                         let message = format!("{{ \"message\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
                                     
@@ -98,6 +98,7 @@ async fn main() {
                                         break
                                     }
 
+                                    // If usage could not be sent...
                                     println!("[warn]: Exceeded maximum usage, given {}, had {}/{}", client.maximums.to_value(), up, down);
 
                                     let conn = client.connected.clone();

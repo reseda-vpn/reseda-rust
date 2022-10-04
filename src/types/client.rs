@@ -97,7 +97,10 @@ impl Client {
     }
 
     pub fn merge_from(&mut self, client: &Client) -> &mut Self {
-        self.author = client.author.clone();
+        // Interesting error possibility with multiple overridable authorial id's 
+        // Such that if a user from the same PC and has not restarted their PC (i.e. has same cached connection ID)
+        // Who has changed accounts, i.e. from an invalid to a valid - then their authorId will have changed
+        // So we need to update the authorId but we can retain all the other information about them.
         self.public_key = client.public_key.clone();
         self.maximums = client.maximums.clone();
         self.connected = client.connected.clone();
