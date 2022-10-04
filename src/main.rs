@@ -2,6 +2,7 @@ use std::{convert::Infallible, sync::Arc, time::Duration, process::Command};
 use tokio::sync::Mutex;
 use warp::ws::Message;
 use warp::{Filter, Rejection};
+use crate::lib::close_query;
 use crate::types::{QueryParameters, Clients, Connection};
 use crate::wireguard::{WireGuardConfig, WireGuard};
 use futures_timer::Delay;
@@ -109,6 +110,7 @@ async fn main() {
                                     }
 
                                     if let Connection::Connected(val) = conn {
+                                        // Message: UserDisConnection-ExceededUsage
                                         let message = format!("{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}");
 
                                         if let Some(sender) = &client.sender {
@@ -121,7 +123,9 @@ async fn main() {
                                                 }
                                             }
                                         };
-    
+
+                                        close_query(&client.public_key, &config).await;
+
                                         // Add a delay that is non-stalling for the thread.
                                         client.set_connectivity(Connection::Disconnected);
     

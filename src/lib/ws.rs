@@ -186,6 +186,165 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
     };
 }
 
+pub async fn close_query(client_id: &str, config: &WireGuard) {
+    let mut configuration = config.lock().await;
+    let mut locked = configuration.clients.lock().await;
+
+    let connection_to_drop = match locked.get_mut(client_id) {
+        Some(client) => {
+            match &client.connected {
+                Connection::Disconnected => {
+                    println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
+                    Slot::Prospective
+                }
+                Connection::Connected(connection) => {
+                    client.to_owned().set_connectivity(Connection::Disconnected);
+                    configuration.remove_peer(&client).await;
+
+                    let connection_usage = client.get_usage();
+                    let session_id = Uuid::new_v4().to_string();
+                    let con_time = connection.conn_time.to_rfc3339();
+                    let now = Utc::now().to_rfc3339();
+
+                    let down = connection_usage.0.to_string();
+                    let up = connection_usage.1.to_string();
+                    
+                    match configuration.pool.begin().await {
+                        Ok(mut transaction) => {
+                            match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
+                                .execute(&mut transaction)
+                                .await {
+                                    Ok(_returned_information) => {
+                                        match transaction.commit().await {
+                                            Ok(r2) => {
+                                                println!("[sqlx]: Usage Log Transaction Result: {:?}", r2);
+
+                                                match reqwest::Client::new()
+                                                    .post("https://reseda.app/api/billing/usage-reccord")
+                                                    .json(&serde_json::json!({
+                                                        "sessionId": session_id,
+                                                    }))
+                                                    .send()
+                                                    .await {
+                                                        Ok(r) => {
+                                                            match r.text().await {
+                                                                Ok(_) => {
+                                                                    // Success!
+                                                                    // Here the Reseda API has published the usage-reccord of the service to stripe, thus meaning that the users logging has been billed to them.
+                                                                    // Notably, if the user is under a FREE or SUPPORTER tier, they will not be charged anything, as the API will return a ERROR:400, indicating failure to recognise a valid stripe subscription to thier billing profile.
+                                                                },
+                                                                Err(error) => println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error),
+                                                            };
+                                                        },
+                                                        Err(error) => {
+                                                            println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error)
+                                                        },
+                                                    }
+                                            },
+                                            Err(error) => println!("[sqlx]: Transaction Commit Error: {:?}", error),
+                                        }
+                                    },
+                                    Err(error) => println!("[sqlx]: Transaction Commit Error: {:?}", error),
+                                };
+                        },
+                        Err(err) => {
+                            println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
+                        }
+                    };
+
+                    Slot::Open(connection.clone())
+                }
+            }
+        }
+        None => {
+            Slot::Prospective
+        },
+    };
+
+    drop(locked);
+    match connection_to_drop {
+        Slot::Open(drop) => {
+            println!("[reserver]: Freeing up now unused slot; {:?}", drop);
+            configuration.free_slot(&drop);
+        },
+        Slot::Prospective => println!("[reserver]: Error, Could not drop"),
+    }
+    drop(configuration);
+
+    let temp = &config.lock().await;
+    let message = format!("{{ \"message\": \"Removed client successfully.\", \"type\": \"message\" }}");
+
+    let locked = temp.clients.lock().await;
+
+    match locked.get(client_id) {
+        Some(v) => {
+            if let Some(sender) = &v.sender {
+                let _ = sender.send(Ok(Message::text(message)));
+            }
+        }
+        None => {
+            println!("[err]: Failed to find user with id: {}", client_id);
+        },
+    }
+}
+
+pub async fn open_query(client_id: &str, config: &WireGuard) {
+    let mut configuration = config.lock().await;
+
+    let slot = configuration.find_open_slot();
+    println!("[reserver]: Found slot: {:?}", slot);
+
+    let reserved_slot = match slot {
+        types::Slot::Open(open_slot) => configuration.reserve_slot(open_slot),
+        types::Slot::Prospective => Reservation::Imissable,
+    };
+    println!("[reserver]: Reserved Slot: {:?}", reserved_slot);
+
+    match reserved_slot {
+        Reservation::Held(valid_slot) => {
+            let mut lock = configuration.clients.lock().await;
+            let client = lock.get_mut(client_id);
+
+            match client {
+                Some(v) => {
+                    let clone = &valid_slot.clone();
+
+                    v.set_connectivity(Connection::Connected(valid_slot));
+                    configuration.add_peer(v).await;
+
+                    let a = &clone.a.clone();
+                    let b = &clone.b.clone();
+
+                    let message = format!(
+                        "{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\", \"subdomain\": \"{}.{}\" }}, \"type\": \"message\" }}", 
+                        configuration.keys.public_key.trim(), 
+                        configuration.config.address, 
+                        configuration.config.listen_port.trim(),
+                        &a, &b
+                    );
+                    
+                    if let Some(sender) = &v.sender {
+                        let _ = sender.send(Ok(Message::text(message)));
+                    }
+         
+                    println!("[evt]: Success, Created Peer {:?} on slot {:?}", v.public_key, v.connected);
+                }
+                None => {
+                    drop(lock);
+                    // Found and reserved slot, however was not able to get lock on client, so we free the slot as it is not assigned to any user.
+                    configuration.free_slot(&valid_slot);
+                },
+            }
+        }
+        Reservation::Imissable => {
+            println!("[reserver]: Error, Unable to add user to slot (Imissable)");
+        }
+        Reservation::Detached(err) => {
+            println!("[reserver]: Error, Unable to add user to slot (Detached): {:?}", err);
+        },
+    }
+}
+
 async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
     let message = match msg.to_str() {
         Ok(v) => v,
@@ -200,162 +359,11 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
     };
 
     match json.query_type {
-        Query::Close => {
-            let mut configuration = config.lock().await;
-            let mut locked = configuration.clients.lock().await;
-
-            let connection_to_drop = match locked.get_mut(client_id) {
-                Some(client) => {
-                    match &client.connected {
-                        Connection::Disconnected => {
-                            println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
-                            Slot::Prospective
-                        }
-                        Connection::Connected(connection) => {
-                            client.to_owned().set_connectivity(Connection::Disconnected);
-                            configuration.remove_peer(&client).await;
-
-                            let connection_usage = client.get_usage();
-                            let session_id = Uuid::new_v4().to_string();
-                            let con_time = connection.conn_time.to_rfc3339();
-                            let now = Utc::now().to_rfc3339();
-
-                            let down = connection_usage.0.to_string();
-                            let up = connection_usage.1.to_string();
-                            
-                            match configuration.pool.begin().await {
-                                Ok(mut transaction) => {
-                                    match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
-                                        .execute(&mut transaction)
-                                        .await {
-                                            Ok(_returned_information) => {
-                                                match transaction.commit().await {
-                                                    Ok(r2) => {
-                                                        println!("[sqlx]: Usage Log Transaction Result: {:?}", r2);
-
-                                                        match reqwest::Client::new()
-                                                            .post("https://reseda.app/api/billing/usage-reccord")
-                                                            .json(&serde_json::json!({
-                                                                "sessionId": session_id,
-                                                            }))
-                                                            .send()
-                                                            .await {
-                                                                Ok(r) => {
-                                                                    match r.text().await {
-                                                                        Ok(_) => {
-                                                                            // Success!
-                                                                            // Here the Reseda API has published the usage-reccord of the service to stripe, thus meaning that the users logging has been billed to them.
-                                                                            // Notably, if the user is under a FREE or SUPPORTER tier, they will not be charged anything, as the API will return a ERROR:400, indicating failure to recognise a valid stripe subscription to thier billing profile.
-                                                                        },
-                                                                        Err(error) => println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error),
-                                                                    };
-                                                                },
-                                                                Err(error) => {
-                                                                    println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error)
-                                                                },
-                                                            }
-                                                    },
-                                                    Err(error) => println!("[sqlx]: Transaction Commit Error: {:?}", error),
-                                                }
-                                            },
-                                            Err(error) => println!("[sqlx]: Transaction Commit Error: {:?}", error),
-                                        };
-                                },
-                                Err(err) => {
-                                    println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
-                                }
-                            };
-
-                            Slot::Open(connection.clone())
-                        }
-                    }
-                }
-                None => {
-                    Slot::Prospective
-                },
-            };
-
-            drop(locked);
-            match connection_to_drop {
-                Slot::Open(drop) => {
-                    println!("[reserver]: Freeing up now unused slot; {:?}", drop);
-                    configuration.free_slot(&drop);
-                },
-                Slot::Prospective => println!("[reserver]: Error, Could not drop"),
-            }
-            drop(configuration);
-
-            let temp = &config.lock().await;
-            let message = format!("{{ \"message\": \"Removed client successfully.\", \"type\": \"message\" }}");
-
-            let locked = temp.clients.lock().await;
-
-            match locked.get(client_id) {
-                Some(v) => {
-                    if let Some(sender) = &v.sender {
-                        let _ = sender.send(Ok(Message::text(message)));
-                    }
-                }
-                None => {
-                    println!("[err]: Failed to find user with id: {}", client_id);
-                },
-            }
-        },
         Query::Open => {
-            let mut configuration = config.lock().await;
-
-            let slot = configuration.find_open_slot();
-            println!("[reserver]: Found slot: {:?}", slot);
-
-            let reserved_slot = match slot {
-                types::Slot::Open(open_slot) => configuration.reserve_slot(open_slot),
-                types::Slot::Prospective => Reservation::Imissable,
-            };
-            println!("[reserver]: Reserved Slot: {:?}", reserved_slot);
-
-            match reserved_slot {
-                Reservation::Held(valid_slot) => {
-                    let mut lock = configuration.clients.lock().await;
-                    let client = lock.get_mut(client_id);
-
-                    match client {
-                        Some(v) => {
-                            let clone = &valid_slot.clone();
-
-                            v.set_connectivity(Connection::Connected(valid_slot));
-                            configuration.add_peer(v).await;
-
-                            let a = &clone.a.clone();
-                            let b = &clone.b.clone();
-
-                            let message = format!(
-                                "{{ \"message\": {{ \"server_public_key\": \"{}\", \"endpoint\": \"{}:{}\", \"subdomain\": \"{}.{}\" }}, \"type\": \"message\" }}", 
-                                configuration.keys.public_key.trim(), 
-                                configuration.config.address, 
-                                configuration.config.listen_port.trim(),
-                                &a, &b
-                            );
-                            
-                            if let Some(sender) = &v.sender {
-                                let _ = sender.send(Ok(Message::text(message)));
-                            }
-                 
-                            println!("[evt]: Success, Created Peer {:?} on slot {:?}", v.public_key, v.connected);
-                        }
-                        None => {
-                            drop(lock);
-                            // Found and reserved slot, however was not able to get lock on client, so we free the slot as it is not assigned to any user.
-                            configuration.free_slot(&valid_slot);
-                        },
-                    }
-                }
-                Reservation::Imissable => {
-                    println!("[reserver]: Error, Unable to add user to slot (Imissable)");
-                }
-                Reservation::Detached(err) => {
-                    println!("[reserver]: Error, Unable to add user to slot (Detached): {:?}", err);
-                },
-            }
+            open_query(client_id, config).await;
+        },
+        Query::Close => {
+            close_query(client_id, config).await;
         },
         _ => {
             return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
