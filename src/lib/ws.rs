@@ -1,7 +1,7 @@
-use crate::{Clients, types::{self, Query, QueryParameters, Client, Connection, Reservation, Slot}, wireguard::{WireGuard}};
+use crate::{Clients, types::{self, Query, QueryParameters, Client, Connection, Reservation, Slot}, wireguard::{WireGuard, WireGuardConfig}};
 use chrono::Utc;
 use futures::{FutureExt, StreamExt};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, MutexGuard};
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;
 use warp::ws::{Message, WebSocket};
@@ -186,10 +186,9 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
     };
 }
 
-pub async fn close_query(client_id: &str, config: &WireGuard) {
-    let mut configuration = config.lock().await;
+pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, WireGuardConfig>) {
     let mut locked = configuration.clients.lock().await;
-
+    
     let connection_to_drop = match locked.get_mut(client_id) {
         Some(client) => {
             match &client.connected {
@@ -269,12 +268,10 @@ pub async fn close_query(client_id: &str, config: &WireGuard) {
         },
         Slot::Prospective => println!("[reserver]: Error, Could not drop"),
     }
-    drop(configuration);
 
-    let temp = &config.lock().await;
     let message = format!("{{ \"message\": \"Removed client successfully.\", \"type\": \"message\" }}");
 
-    let locked = temp.clients.lock().await;
+    let locked = configuration.clients.lock().await;
 
     match locked.get(client_id) {
         Some(v) => {
@@ -288,9 +285,7 @@ pub async fn close_query(client_id: &str, config: &WireGuard) {
     }
 }
 
-pub async fn open_query(client_id: &str, config: &WireGuard) {
-    let mut configuration = config.lock().await;
-
+pub async fn open_query(client_id: &str, mut configuration: MutexGuard<'_, WireGuardConfig>) {
     let slot = configuration.find_open_slot();
     println!("[reserver]: Found slot: {:?}", slot);
 
@@ -360,10 +355,14 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
 
     match json.query_type {
         Query::Open => {
-            open_query(client_id, config).await;
+            let configuration = config.lock().await;
+
+            open_query(client_id, configuration).await;
         },
         Query::Close => {
-            close_query(client_id, config).await;
+            let mut configuration = config.lock().await;
+
+            close_query(client_id, &mut configuration).await;
         },
         _ => {
             return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
