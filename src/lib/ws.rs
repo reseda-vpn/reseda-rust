@@ -187,7 +187,11 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
 }
 
 pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, WireGuardConfig>) {
+    println!("[evt]: Closing connection: Start");
+
     let mut locked = configuration.clients.lock().await;
+
+    println!("[evt]: Closing connection: Obtained Client Lock");
     
     let connection_to_drop = match locked.get_mut(client_id) {
         Some(client) => {
@@ -197,8 +201,12 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
                     Slot::Prospective
                 }
                 Connection::Connected(connection) => {
+                    println!("[evt]: Closing connection: Found connection to drop");
+                    
                     client.to_owned().set_connectivity(Connection::Disconnected);
                     configuration.remove_peer(&client).await;
+
+                    println!("[evt]: Closing connection: Removed Peer");
 
                     let connection_usage = client.get_usage().clone();
                     let con_time = connection.conn_time.to_rfc3339().clone();
@@ -211,12 +219,16 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
 
                     let author_id = client.author.clone();
 
+                    println!("[evt]: Closing connection: Creating Transaction");
+
                     match configuration.pool.begin().await {
                         Ok(mut transaction) => {
                             match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, author_id, configuration.config.name, up, down, con_time, now)
                                 .execute(&mut transaction)
                                 .await {
                                     Ok(_returned_information) => {
+                                        println!("[evt]: Closing connection: Committing Transaction");
+
                                         match transaction.commit().await {
                                             Ok(r2) => {
                                                 println!("[sqlx]: Usage Log Transaction Result: {:?}", r2);
