@@ -140,6 +140,8 @@ async fn main() {
                                     config_lock.free_slot(&val);
                                     config_lock.remove_peer(&client).await;
 
+                                    drop(clients_lock);
+
                                     println!("[evt]: Closing Service for user, config is arc-locked for this process.");
 
                                     close_query(&client.public_key, &mut config_lock).await;
