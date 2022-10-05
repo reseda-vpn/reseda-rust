@@ -200,17 +200,20 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
                     client.to_owned().set_connectivity(Connection::Disconnected);
                     configuration.remove_peer(&client).await;
 
-                    let connection_usage = client.get_usage();
-                    let session_id = Uuid::new_v4().to_string();
-                    let con_time = connection.conn_time.to_rfc3339();
-                    let now = Utc::now().to_rfc3339();
+                    let connection_usage = client.get_usage().clone();
+                    let con_time = connection.conn_time.to_rfc3339().clone();
 
-                    let down = connection_usage.0.to_string();
-                    let up = connection_usage.1.to_string();
-                    
+                    let now = Utc::now().to_rfc3339();
+                    let session_id = Uuid::new_v4().to_string();
+
+                    let down = connection_usage.0.to_string().clone();
+                    let up = connection_usage.1.to_string().clone();
+
+                    let author_id = client.author.clone();
+
                     match configuration.pool.begin().await {
                         Ok(mut transaction) => {
-                            match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, client.author, configuration.config.name, up, down, con_time, now)
+                            match sqlx::query!("insert into Usage (id, userId, serverId, up, down, connStart, connEnd) values (?, ?, ?, ?, ?, ?, ?)", session_id, author_id, configuration.config.name, up, down, con_time, now)
                                 .execute(&mut transaction)
                                 .await {
                                     Ok(_returned_information) => {

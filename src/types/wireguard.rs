@@ -1,3 +1,4 @@
+use config::Config;
 use serde::{Serialize, Deserialize};
 use std::process::{Command, Stdio};
 use std::io::{Write};
@@ -21,16 +22,18 @@ pub struct WireGuardConfigFile {
 
 impl WireGuardConfigFile {
     pub async fn from_environment() -> Self {
-        let mut settings = config::Config::default();
-
         let base_path = std::env::current_dir().expect("Failed to determine the current directory");
         let configuration_directory = base_path.join("configuration");
 
-        match settings.merge(config::File::from(configuration_directory.join("base")).required(true)) {
-            Ok(_) => {},
-            Err(err) => println!("[err]: Loading environment. Reason: {:?}", err)
-        }
-
+        let settings = match Config::builder()
+            .add_source(config::File::from(configuration_directory.join("base")))
+            .build()  {
+                Ok(config) => config,
+                Err(err) => {
+                    panic!("[err]: Loading environment. Reason: {:?}", err)
+                }
+        };
+        
         let database_url = match settings.get_string("database_auth") {
             Ok(val) => val,
             Err(_) => panic!()

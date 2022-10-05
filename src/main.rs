@@ -133,16 +133,22 @@ async fn main() {
                                         }
                                     };
 
-                                    close_query(&client.public_key, &mut config_lock).await;
-
                                     // Add a delay that is non-stalling for the thread.
                                     client.set_connectivity(Connection::Disconnected);
 
                                     Delay::new(Duration::from_millis(1000)).await;
                                     config_lock.free_slot(&val);
                                     config_lock.remove_peer(&client).await;
+
+                                    println!("[evt]: Closing Service for user, config is arc-locked for this process.");
+
+                                    close_query(&client.public_key, &mut config_lock).await;
+
+                                    println!("[evt]: Closed Service for user, preparing to unlock config.");
                                 };
                             }
+
+                            println!("[evt]: Configuration unlocked.");
                         }
                         Err(err) => {
                             println!("[err]: Parsing UTF8: {}", err)
