@@ -113,6 +113,20 @@ async fn main() {
 
                                 if conn == Connection::Disconnected {
                                     println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
+                                    Delay::new(Duration::from_millis(1000)).await;
+                                    config_lock.remove_peer(&client).await;
+
+                                    let public_key = &client.public_key.clone();
+
+                                    drop(client);
+                                    drop(clients_lock);
+
+                                    println!("[evt]: Closing Service for user, config is arc-locked for this process.");
+
+                                    close_query(&public_key, &mut config_lock).await;
+
+                                    println!("[evt]: Closed Service for user, preparing to unlock config.");
+
                                     break;
                                 }
 
