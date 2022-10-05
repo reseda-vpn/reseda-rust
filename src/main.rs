@@ -112,7 +112,7 @@ async fn main() {
                                 let conn = client.connected.clone();
 
                                 if conn == Connection::Disconnected {
-                                    println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
+                                    println!("[err]: Something went wrong, attempted to directly remove user for exceeding limits who is not connected...");
                                     Delay::new(Duration::from_millis(1000)).await;
                                     config_lock.remove_peer(&client).await;
 
@@ -136,6 +136,7 @@ async fn main() {
                                         "{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}"
                                     );
 
+                                    // Inform user of upcoming disconnection.
                                     if let Some(sender) = &client.sender {
                                         match sender.send(Ok(Message::text(message))) {
                                             Ok(_) => {
@@ -147,12 +148,8 @@ async fn main() {
                                         }
                                     };
 
-                                    // Add a delay that is non-stalling for the thread.
-                                    client.set_connectivity(Connection::Disconnected);
-
-                                    Delay::new(Duration::from_millis(1000)).await;
-                                    config_lock.free_slot(&val);
-                                    config_lock.remove_peer(&client).await;
+                                    // Wait 200ms, to allow for throughput from buffer to leave and inform before pulling  (non-thread-blocking wait)
+                                    Delay::new(Duration::from_millis(200)).await;
 
                                     let public_key = &client.public_key.clone();
 

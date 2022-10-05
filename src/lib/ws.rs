@@ -197,7 +197,7 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
         Some(client) => {
             match &client.connected {
                 Connection::Disconnected => {
-                    println!("[err]: Something went wrong, attempted to remove user for exceeding limits who is not connected...");
+                    println!("[err]: User has likely been forcefully disconnected. ");
                     Slot::Prospective
                 }
                 Connection::Connected(connection) => {
