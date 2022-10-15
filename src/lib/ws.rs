@@ -65,76 +65,79 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                         }
                     };
 
-                    let maximums = match config.lock().await.pool.begin().await {
-                        Ok(mut transaction) => {
-                            let usage = match sqlx::query!("SELECT * FROM Usage WHERE userId = ? AND MONTH(connStart)=MONTH(now())", author_clone)
-                                .fetch_all(&mut transaction)
-                                .await {
-                                    Ok(query) => {
-                                        // Obtained a list of query records for the current billing month.
-                                        // Enumerate over the list, taking summation of throughput - allowing for the calculation of
-                                        // the actual appropriate remaining usage for the user.
-                                        let mut total_accrued = (0, 0);
-
-                                        for item in query {
-                                            let as_int_down = match str::parse::<i128>(&item.down) {
-                                                Ok(val) => val,
-                                                Err(error) => {
-                                                    println!("[err]: In converting string to u64: {}", error);
-                                                    0
-                                                }
-                                            };
-                                            let as_int_up = match str::parse::<i128>(&item.up) {
-                                                Ok(val) => val,
-                                                Err(error) => {
-                                                    println!("[err]: In converting string to u64: {}", error);
-                                                    0
-                                                }
-                                            };
-
-                                            total_accrued = (total_accrued.0 + as_int_up, total_accrued.1 + as_int_down);
-                                        };
-
-                                        println!("[ws]: Joining user has accrued {:?} of usage this month.", total_accrued);
-
-                                        total_accrued
-                                    }   
-                                    Err(err) => {
-                                        println!("[err]: Unable to fetch, possibly no results or invalid user. {}", err);
-
-                                        (0, 0)
-                                    }
-                                };
-
-                            match sqlx::query!("select tier from Account where userId = ?", author_clone)
-                                .fetch_one(&mut transaction)
-                                .await {
-                                    Ok(query) => {
-                                        let tier = query.tier.as_str();
-
-                                        println!("[msg]: User is of {} tier", &tier);
-
-                                        let argument_tier = match tier {
-                                            "FREE" => types::Maximums::Free(usage.0, usage.1),
-                                            "PRO" => types::Maximums::Pro(usage.0, usage.1),
-                                            "BASIC" => types::Maximums::Basic(usage.0, usage.1),
-                                            "SUPPORTER" => types::Maximums::Supporter(usage.0, usage.1),
-                                            _ => types::Maximums::Unassigned
-                                        };
-
-                                        argument_tier
-                                    },
-                                    Err(err) => {
-                                        println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
-                                        types::Maximums::Unassigned
-                                    }
-                            }
+                    let mut transaction = match config.lock().await.pool.begin().await {
+                        Ok(transaction) => {
+                            transaction
                         },
                         Err(err) => {
-                            println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
-                            types::Maximums::Unassigned
+                            println!("[err]: Unable to perform request, user will be removed and disconnected as server is not in appreciable state to handle user. Reason: {}", err);
+                            config.lock().await.clients.lock().await.remove(&obj.author.clone());
+                            return;
                         }
                     };
+
+                    let usage = match sqlx::query!("SELECT * FROM Usage WHERE userId = ? AND MONTH(connStart)=MONTH(now())", author_clone)
+                        .fetch_all(&mut transaction)
+                        .await {
+                            Ok(query) => {
+                                // Obtained a list of query records for the current billing month.
+                                // Enumerate over the list, taking summation of throughput - allowing for the calculation of
+                                // the actual appropriate remaining usage for the user.
+                                let mut total_accrued = (0, 0);
+
+                                for item in query {
+                                    let as_int_down = match str::parse::<i128>(&item.down) {
+                                        Ok(val) => val,
+                                        Err(error) => {
+                                            println!("[err]: In converting string to u64: {}", error);
+                                            0
+                                        }
+                                    };
+                                    let as_int_up = match str::parse::<i128>(&item.up) {
+                                        Ok(val) => val,
+                                        Err(error) => {
+                                            println!("[err]: In converting string to u64: {}", error);
+                                            0
+                                        }
+                                    };
+
+                                    total_accrued = (total_accrued.0 + as_int_up, total_accrued.1 + as_int_down);
+                                };
+
+                                println!("[ws]: Joining user has accrued {:?} of usage this month.", total_accrued);
+
+                                total_accrued
+                            }
+                            Err(err) => {
+                                println!("[err]: Unable to fetch, possibly no results or invalid user. {}", err);
+
+                                (0, 0)
+                            }
+                        };
+
+                    let maximums = match sqlx::query!("select tier from Account where userId = ?", author_clone)
+                        .fetch_one(&mut transaction)
+                        .await {
+                            Ok(query) => {
+                                let tier = query.tier.as_str();
+
+                                println!("[msg]: User is of {} tier", &tier);
+
+                                let argument_tier = match tier {
+                                    "FREE" => types::Maximums::Free(usage.0, usage.1),
+                                    "PRO" => types::Maximums::Pro(usage.0, usage.1),
+                                    "BASIC" => types::Maximums::Basic(usage.0, usage.1),
+                                    "SUPPORTER" => types::Maximums::Supporter(usage.0, usage.1),
+                                    _ => types::Maximums::Unassigned
+                                };
+
+                                argument_tier
+                            },
+                            Err(err) => {
+                                println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
+                                types::Maximums::Unassigned
+                            }
+                        };
 
                     match config.lock().await.clients.lock().await.get_mut(&pk) {
                         Some(client) => {
