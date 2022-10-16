@@ -65,7 +65,11 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                         }
                     };
 
-                    let mut transaction = match config.lock().await.pool.begin().await {
+                    // Pool is cheap to clone - https://docs.rs/sqlx/latest/sqlx/struct.Pool.html
+                    // In order to reduce connection times, we must hold locks on config for as little time as possible.
+                    let pool = config.lock().await.pool.clone();
+
+                    let mut transaction = match pool.begin().await {
                         Ok(transaction) => {
                             transaction
                         },

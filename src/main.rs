@@ -130,7 +130,7 @@ async fn main() {
                                     break;
                                 }
 
-                                if let Connection::Connected(val) = conn {
+                                if let Connection::Connected(_val) = conn {
                                     // Message: UserDisConnection-ExceededUsage
                                     let message = format!(
                                         "{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}"

@@ -1,7 +1,7 @@
 use config::Config;
 use serde::{Serialize, Deserialize};
 use std::process::{Command, Stdio};
-use std::io::{Write};
+use std::io::Write;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct WireGuardConfigFile {
@@ -55,8 +55,8 @@ impl WireGuardConfigFile {
                     post_down: "iptables -A FORWARD -i reseda -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE".to_string(),
                     dns: "1.1.1.1".to_string(),
                     listen_port: "8443".to_string(),
-                    database_url: database_url,
-                    access_key: access_key,
+                    database_url,
+                    access_key,
 
                     location: "".to_string(),
                     country: "".to_string(),
@@ -106,8 +106,8 @@ impl KeyState {
         let public_key = String::from_utf8(output.stdout.to_vec()).unwrap();
 
         KeyState {
-            private_key: private_key,
-            public_key: public_key
+            private_key,
+            public_key
         }
     }
 }
