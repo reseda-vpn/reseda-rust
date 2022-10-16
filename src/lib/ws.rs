@@ -64,9 +64,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             config.lock().await.clients.lock().await.insert(pk.clone(), client.clone());
                         }
                     };
-
-                    // Pool is cheap to clone - https://docs.rs/sqlx/latest/sqlx/struct.Pool.html
-                    // In order to reduce connection times, we must hold locks on config for as little time as possible.
+                    
                     let pool = config.lock().await.pool.clone();
 
                     let mut transaction = match pool.begin().await {
@@ -80,7 +78,14 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                         }
                     };
 
-                    let usage = match sqlx::query!("SELECT * FROM Usage WHERE userId = ? AND MONTH(connStart)=MONTH(now())", author_clone)
+                    let clone_pk = pk.clone();
+                    let configuration_reference = config.clone();
+
+                    tokio::spawn(async move {
+                        // Pool is cheap to clone - https://docs.rs/sqlx/latest/sqlx/struct.Pool.html
+                        // In order to reduce connection times, we must hold locks on config for as little time as possible.
+
+                        let usage = match sqlx::query!("SELECT * FROM Usage WHERE userId = ? AND MONTH(connStart)=MONTH(now())", author_clone)
                         .fetch_all(&mut transaction)
                         .await {
                             Ok(query) => {
@@ -119,7 +124,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             }
                         };
 
-                    let maximums = match sqlx::query!("select tier from Account where userId = ?", author_clone)
+                        let maximums = match sqlx::query!("select tier from Account where userId = ?", author_clone)
                         .fetch_one(&mut transaction)
                         .await {
                             Ok(query) => {
@@ -143,12 +148,13 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             }
                         };
 
-                    match config.lock().await.clients.lock().await.get_mut(&pk) {
-                        Some(client) => {
-                            client.set_tier(maximums);
+                        match configuration_reference.lock().await.clients.lock().await.get_mut(&clone_pk) {
+                            Some(client) => {
+                                client.set_tier(maximums);
+                            }
+                            None => {}
                         }
-                        None => {}
-                    }
+                    });
                     
                     while let Some(result) = client_ws_rcv.next().await {
                         let msg = match result {
