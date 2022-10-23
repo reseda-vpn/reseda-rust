@@ -257,7 +257,7 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
                                                             match r.text().await {
                                                                 Ok(_) => {
                                                                     // Success!
-                                                                    // Here the Reseda API has published the usage-reccord of the service to stripe, thus meaning that the users logging has been billed to them.
+                                                                    // Here the Reseda API has published the usage-record of the service to stripe, thus meaning that the users logging has been billed to them.
                                                                     // Notably, if the user is under a FREE or SUPPORTER tier, they will not be charged anything, as the API will return a ERROR:400, indicating failure to recognise a valid stripe subscription to thier billing profile.
                                                                 },
                                                                 Err(error) => println!("[api.reseda]: Failed to record usage-record with reseda, API returned: {:?}", error),

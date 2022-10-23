@@ -25,7 +25,7 @@ pub struct NodeResponse {
 }
 
 pub async fn health_status(config: WireGuard) -> Result<Box<dyn warp::Reply>, Infallible> {
-    println!("Recieved Health Call, obtaining datalock...");
+    println!("Received health call, obtaining datalock...");
     let data = config.lock().await;
     println!("Obtained datalock...");
     
@@ -34,7 +34,7 @@ pub async fn health_status(config: WireGuard) -> Result<Box<dyn warp::Reply>, In
         usage: data.clients.lock().await.len().to_string(),
 
         ip: data.information.ip.clone(),
-        cert: data.information.cert.clone(),
+        cert: data.information.mim.clone(),
         record_id: data.information.record_id.clone()
     };
 

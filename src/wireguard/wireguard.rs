@@ -54,6 +54,21 @@ pub struct RegistryReturn {
     pub cert_id: String,
 
     pub res: IpResponse,
+    pub id: String,
+
+    pub mim: String
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct RegImpl {
+    pub key: String,
+    pub cert: String,
+    pub ip: String,
+
+    pub record_id: String,
+    pub cert_id: String,
+
+    pub res: IpResponse,
     pub id: String
 }
 
@@ -110,9 +125,32 @@ impl WireGuardConfig {
                 },
             };
         
-        let registration_return: RegistryReturn = match serde_json::from_str(&information) {
+        let registration: RegImpl = match serde_json::from_str(&information) {
             Ok(val) => val,
             Err(err) => panic!("{}", format!("Failed to parse server registration: {:?}", err))
+        };
+
+        let minified_certificate = match registration.cert.clone().split("\n").nth(1) {
+            Some(value) => {
+                match value.to_string().get(1..32) {
+                    Some(val) => val.to_string(),
+                    None => todo!(),
+                }
+            },
+            None => todo!(),
+        };
+
+        let registration_return = RegistryReturn {
+            mim: minified_certificate,
+            key: registration.key,
+            cert: registration.cert,
+            ip: registration.ip,
+        
+            record_id: registration.record_id,
+            cert_id: registration.cert_id,
+        
+            res: registration.res,
+            id: registration.id,
         };
 
         match File::create("key.pem") {
