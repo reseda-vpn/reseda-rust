@@ -32,8 +32,13 @@ impl Maximums {
             },
 
             // -1 means IGNORE for the time, such that it does not have a data cap.
-            Self::Basic(up, down) => max_val-(down + up),
-            Self::Pro(up, down) => max_val-(down + up),
+            Self::Basic(up, down) | Self::Pro(up, down) => {
+                if max_val-(down+up) <= 5000000 {
+                    5000000
+                } else {
+                    max_val-(down + up)
+                }
+            },
 
             // This is the state that occurs when a user connects but is awaiting their tier to be assigned.
             // We give them a small allowance first, without having a verified account, this is small enough
