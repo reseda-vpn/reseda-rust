@@ -90,7 +90,7 @@ async fn main() {
                                     if let Some(sender) = &client.sender {
                                         match sender.send(Ok(Message::text(message))) {
                                             Ok(_) => {
-                                                println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(), up, down);
+                                                println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(client.limit), up, down);
                                             }
                                             Err(e) => {
                                                 println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
@@ -104,7 +104,7 @@ async fn main() {
                                 // If usage could not be sent...
                                 println!(
                                     "[warn]: Exceeded maximum usage, given {}, had {}/{}",
-                                    client.maximums.to_value(),
+                                    client.maximums.to_value(client.limit),
                                     up,
                                     down
                                 );

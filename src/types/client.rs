@@ -15,7 +15,7 @@ pub enum Maximums {
 } 
 
 impl Maximums {
-    pub fn to_value(&self) -> i128 {
+    pub fn to_value(&self, max_val: i128) -> i128 {
         match self {
             // 5GB
             Self::Free(up, down) => {
@@ -32,8 +32,8 @@ impl Maximums {
             },
 
             // -1 means IGNORE for the time, such that it does not have a data cap.
-            Self::Basic(up, down) => -(down + up),
-            Self::Pro(up, down) => -(down + up),
+            Self::Basic(up, down) => max_val-(down + up),
+            Self::Pro(up, down) => max_val-(down + up),
 
             // This is the state that occurs when a user connects but is awaiting their tier to be assigned.
             // We give them a small allowance first, without having a verified account, this is small enough
@@ -148,27 +148,9 @@ impl Client {
         self.usage.up = *up;
 
         match self.maximums {
-            Maximums::Pro(..) => {
-                let sub: i128 = self.maximums.to_value();
+            Maximums::Pro(..) | Maximums::Basic(..) | Maximums::Free(..) | Maximums::Supporter(..) => {
+                let max: i128 = self.maximums.to_value(self.limit);
                 
-                if (self.limit + sub) < 0 {
-                    true
-                } else {
-                    false
-                }
-            },
-            Maximums::Basic(..) => {
-                let sub: i128 = self.maximums.to_value();
-                
-                if (self.limit + sub) < 0 {
-                    true
-                } else {
-                    false
-                }
-            },
-            Maximums::Free(..) | Maximums::Supporter(..) => {
-                let max: i128 = self.maximums.to_value();
-
                 if max > *up && max > *down {
                     false
                 }else {
