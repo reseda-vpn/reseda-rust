@@ -83,85 +83,86 @@ async fn main() {
 
                                 let usage_query = client.set_usage(&up, &down);
 
-                                // If a usage could be set...
-                                if usage_query == false {
-                                    let message = format!("{{ \"message\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
+                                match usage_query {
+                                    Ok(_) => {
+                                        // If a usage could be set...
+                                        let message = format!("{{ \"message\": {{ \"up\": {}, \"down\": {} }}, \"type\": \"update\"}}", &up, &down);
 
-                                    if let Some(sender) = &client.sender {
-                                        match sender.send(Ok(Message::text(message))) {
-                                            Ok(_) => {
-                                                println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(client.limit), up, down);
-                                            }
-                                            Err(e) => {
-                                                println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
-                                            }
-                                        }
-                                    }
-
-                                    break;
-                                }
-
-                                // If usage could not be sent...
-                                println!(
-                                    "[warn]: Exceeded maximum usage, given {}, had {}/{}",
-                                    client.maximums.to_value(client.limit),
-                                    up,
-                                    down
-                                );
-
-                                let conn = client.connected.clone();
-
-                                if conn == Connection::Disconnected {
-                                    println!("[err]: Something went wrong, attempted to directly remove user for exceeding limits who is not connected...");
-                                    Delay::new(Duration::from_millis(1000)).await;
-                                    config_lock.remove_peer(&client).await;
-
-                                    let public_key = &client.public_key.clone();
-
-                                    drop(client);
-                                    drop(clients_lock);
-
-                                    println!("[evt]: Closing Service for user, config is arc-locked for this process.");
-
-                                    close_query(&public_key, &mut config_lock).await;
-
-                                    println!("[evt]: Closed Service for user, preparing to unlock config.");
-
-                                    break;
-                                }
-
-                                if let Connection::Connected(_val) = conn {
-                                    // Message: UserDisConnection-ExceededUsage
-                                    let message = format!(
-                                        "{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}"
-                                    );
-
-                                    // Inform user of upcoming disconnection.
-                                    if let Some(sender) = &client.sender {
-                                        match sender.send(Ok(Message::text(message))) {
-                                            Ok(_) => {
-                                                println!("[messaging]: User exceeded usage and was send a disconnection warning.");
-                                            }
-                                            Err(e) => {
-                                                println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                        if let Some(sender) = &client.sender {
+                                            match sender.send(Ok(Message::text(message))) {
+                                                Ok(_) => {
+                                                    println!("[usage]: User {} is given {}, has used up::{}, down::{}", client.public_key, client.maximums.to_value(client.limit), up, down);
+                                                }
+                                                Err(e) => {
+                                                    println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                }
                                             }
                                         }
-                                    };
+                                    },
+                                    Err(_) => {
+                                        // If usage could not be sent...
+                                        println!(
+                                            "[warn]: Exceeded maximum usage, given {}, had {}/{}",
+                                            client.maximums.to_value(client.limit),
+                                            up,
+                                            down
+                                        );
 
-                                    // Wait 200ms, to allow for throughput from buffer to leave and inform before pulling  (non-thread-blocking wait)
-                                    Delay::new(Duration::from_millis(200)).await;
+                                        let conn = client.connected.clone();
 
-                                    let public_key = &client.public_key.clone();
+                                        if conn == Connection::Disconnected {
+                                            println!("[err]: Something went wrong, attempted to directly remove user for exceeding limits who is not connected...");
+                                            Delay::new(Duration::from_millis(1000)).await;
+                                            config_lock.remove_peer(&client).await;
 
-                                    drop(client);
-                                    drop(clients_lock);
+                                            let public_key = &client.public_key.clone();
 
-                                    println!("[evt]: Closing Service for user, config is arc-locked for this process.");
+                                            drop(client);
+                                            drop(clients_lock);
 
-                                    close_query(&public_key, &mut config_lock).await;
+                                            println!("[evt]: Closing Service for user, config is arc-locked for this process.");
 
-                                    println!("[evt]: Closed Service for user, preparing to unlock config.");
-                                };
+                                            close_query(&public_key, &mut config_lock).await;
+
+                                            println!("[evt]: Closed Service for user, preparing to unlock config.");
+
+                                            break;
+                                        }
+
+                                        if let Connection::Connected(_val) = conn {
+                                            // Message: UserDisConnection-ExceededUsage
+                                            let message = format!(
+                                                "{{ \"message\": \"UDC-EU\", \"type\": \"error\"}}"
+                                            );
+
+                                            // Inform user of upcoming disconnection.
+                                            if let Some(sender) = &client.sender {
+                                                match sender.send(Ok(Message::text(message))) {
+                                                    Ok(_) => {
+                                                        println!("[messaging]: User exceeded usage and was send a disconnection warning.");
+                                                    }
+                                                    Err(e) => {
+                                                        println!("[err]: Failed to send message: \'INVALID_SENDER\', reason: {}", e)
+                                                    }
+                                                }
+                                            };
+
+                                            // Wait 200ms, to allow for throughput from buffer to leave and inform before pulling  (non-thread-blocking wait)
+                                            Delay::new(Duration::from_millis(200)).await;
+
+                                            let public_key = &client.public_key.clone();
+
+                                            drop(client);
+                                            drop(clients_lock);
+
+                                            println!("[evt]: Closing Service for user, config is arc-locked for this process.");
+
+                                            close_query(&public_key, &mut config_lock).await;
+
+                                            println!("[evt]: Closed Service for user, preparing to unlock config.");
+                                        };
+                                    },
+                                }
                             }
 
                             println!("[evt]: Configuration unlocked.");

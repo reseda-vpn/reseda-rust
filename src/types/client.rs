@@ -33,10 +33,14 @@ impl Maximums {
 
             // -1 means IGNORE for the time, such that it does not have a data cap.
             Self::Basic(up, down) | Self::Pro(up, down) => {
-                if max_val-(down+up) <= 5000000 {
-                    5000000
-                } else {
-                    max_val-(down + up)
+                if max_val == -1 {
+                    -1
+                }else {
+                    if max_val-(down+up) <= 5000000 {
+                        5000000
+                    } else {
+                        max_val-(down + up)
+                    }
                 }
             },
 
@@ -148,7 +152,7 @@ impl Client {
         self.valid_pk
     }
 
-    pub fn set_usage(&mut self, up: &i128, down: &i128) -> bool {
+    pub fn set_usage(&mut self, up: &i128, down: &i128) -> Result<(), i8> {
         self.usage.down = *down;
         self.usage.up = *up;
 
@@ -157,13 +161,13 @@ impl Client {
                 let max: i128 = self.maximums.to_value(self.limit);
                 
                 if max > *up && max > *down {
-                    false
+                    Ok(())
                 }else {
-                    true
+                    Err(0)
                 }
             },
             Maximums::Unassigned => {
-                true
+                Err(1)
             }
         }
     }
