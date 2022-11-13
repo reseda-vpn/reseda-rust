@@ -18,22 +18,22 @@ impl Maximums {
     pub fn to_value(&self) -> i128 {
         match self {
             // 5GB
-            Self::Free(_up, down) => {
+            Self::Free(up, down) => {
                 let maximum_allowance = 5000000000;
-                let allowed_excess = maximum_allowance - down;
+                let allowed_excess = maximum_allowance - (down + up);
                 allowed_excess.into()
             },
 
             // 50GB
-            Self::Supporter(_up, down) => {
+            Self::Supporter(up, down) => {
                 let maximum_allowance = 50000000000;
-                let allowed_excess = maximum_allowance - down;
+                let allowed_excess = maximum_allowance - (down + up);
                 allowed_excess.into()
             },
 
             // -1 means IGNORE for the time, such that it does not have a data cap.
-            Self::Basic(..) => -1,
-            Self::Pro(..) => -1,
+            Self::Basic(up, down) => -(down + up),
+            Self::Pro(up, down) => -(down + up),
 
             // This is the state that occurs when a user connects but is awaiting their tier to be assigned.
             // We give them a small allowance first, without having a verified account, this is small enough
@@ -44,7 +44,7 @@ impl Maximums {
     }
 }
 
-// By choosing integers with the propper bounds, we cannot go out of bounds of the IP scope.
+// By choosing integers with the proper bounds, we cannot go out of bounds of the IP scope.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Host {
     pub a: u8,
@@ -149,10 +149,22 @@ impl Client {
 
         match self.maximums {
             Maximums::Pro(..) => {
-                return false;
+                let sub: i128 = self.maximums.to_value();
+                
+                if (self.limit + sub) < 0 {
+                    true
+                } else {
+                    false
+                }
             },
             Maximums::Basic(..) => {
-                return false;
+                let sub: i128 = self.maximums.to_value();
+                
+                if (self.limit + sub) < 0 {
+                    true
+                } else {
+                    false
+                }
             },
             Maximums::Free(..) | Maximums::Supporter(..) => {
                 let max: i128 = self.maximums.to_value();
