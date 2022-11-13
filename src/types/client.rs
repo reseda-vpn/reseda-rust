@@ -83,6 +83,7 @@ pub struct Client {
     pub public_key: String,
     pub sender: Option<mpsc::UnboundedSender<std::result::Result<Message, warp::Error>>>,
     pub maximums: Maximums,
+    pub limit: i128,
     pub connected: Connection,
 
     usage: Usage,
@@ -114,6 +115,11 @@ impl Client {
         (self.usage.down, self.usage.up)
     }
 
+    pub fn set_limit(&mut self, limit: i128) -> &mut Self {
+        self.limit = limit;
+
+        self
+    }
     pub fn set_public_key(mut self, public_key: String) -> Self {
         if public_key.len() == 44 && public_key.ends_with("=") {
             self.public_key = public_key.replace(" ", "+").to_string().replace("\n", "").to_string();
@@ -179,6 +185,7 @@ impl Client {
                 up: 0, 
                 down: 0 
             },
+            limit: -1,
             connected: Connection::Disconnected,
             valid_pk: false
         }

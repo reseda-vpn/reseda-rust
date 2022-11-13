@@ -124,13 +124,15 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                             }
                         };
 
-                        let maximums = match sqlx::query!("select tier from Account where userId = ?", author_clone)
+                        let (maximums, limit) = match sqlx::query!("select tier, `limit` from Account where userId = ?", author_clone)
                         .fetch_one(&mut transaction)
                         .await {
                             Ok(query) => {
                                 let tier = query.tier.as_str();
+                                let limit = query.limit.unwrap_or("unlocked".to_string());
+                                let int_limit = str::parse::<i128>(&limit).unwrap_or(-1);
 
-                                println!("[msg]: User is of {} tier", &tier);
+                                println!("[msg]: User is of {} tier with a {} limit", &tier, &limit);
 
                                 let argument_tier = match tier {
                                     "FREE" => types::Maximums::Free(usage.0, usage.1),
@@ -140,17 +142,18 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                                     _ => types::Maximums::Unassigned
                                 };
 
-                                argument_tier
+                                (argument_tier, int_limit)
                             },
                             Err(err) => {
                                 println!("[err]: Unable to perform request, user will remain unassigned. Reason: {}", err);
-                                types::Maximums::Unassigned
+                                (types::Maximums::Unassigned, -1)
                             }
                         };
 
                         match configuration_reference.lock().await.clients.lock().await.get_mut(&clone_pk) {
                             Some(client) => {
                                 client.set_tier(maximums);
+                                client.set_limit(limit);
                             }
                             None => {}
                         }
