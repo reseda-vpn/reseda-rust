@@ -161,7 +161,7 @@ impl Client {
                 let max: i128 = self.maximums.to_value(self.limit);
                 
                 println!("The maximum value adherence is given by: {} from limit '{}' for {}/{}", max, self.limit, up, down);
-                println!("The Max Value is bigger than up and down: {}", (max > up && max > down));
+                println!("The Max Value is bigger than up and down: {}", (max > *up && max > *down));
                 
                 if max > *up && max > *down {
                     Ok(())
