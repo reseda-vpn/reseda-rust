@@ -122,7 +122,7 @@ async fn main() {
 
                                             println!("[evt]: Closing Service for user, config is arc-locked for this process.");
 
-                                            close_query(&public_key, &mut config_lock).await;
+                                            close_query(&public_key, config_lock).await;
 
                                             println!("[evt]: Closed Service for user, preparing to unlock config.");
 
@@ -157,7 +157,7 @@ async fn main() {
 
                                             println!("[evt]: Closing Service for user, config is arc-locked for this process.");
 
-                                            close_query(&public_key, &mut config_lock).await;
+                                            close_query(&public_key, config_lock).await;
 
                                             println!("[evt]: Closed Service for user, preparing to unlock config.");
                                         };

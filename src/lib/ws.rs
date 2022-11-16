@@ -202,7 +202,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
     };
 }
 
-pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, WireGuardConfig>) {
+pub async fn close_query(client_id: &str, mut configuration: MutexGuard<'_, WireGuardConfig>) {
     println!("[evt]: Closing connection: Start");
 
     let mut locked = configuration.clients.lock().await;
@@ -211,7 +211,7 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
     
     let connection_to_drop = match locked.get_mut(client_id) {
         Some(client) => {
-            match &client.connected {
+            match &client.clone().connected {
                 Connection::Disconnected => {
                     println!("[err]: User has likely been forcefully disconnected. ");
                     Slot::Prospective
@@ -219,13 +219,13 @@ pub async fn close_query(client_id: &str, configuration: &mut MutexGuard<'_, Wir
                 Connection::Connected(connection) => {
                     println!("[evt]: Closing connection: Found connection to drop");
                     
-                    client.to_owned().set_connectivity(Connection::Disconnected);
-                    configuration.remove_peer(&client).await;
+                    client.set_connectivity(Connection::Disconnected);
+                    configuration.remove_peer(&client.clone()).await;
 
                     println!("[evt]: Closing connection: Removed Peer");
 
-                    let connection_usage = client.get_usage().clone();
-                    let con_time = connection.conn_time.to_rfc3339().clone();
+                    let connection_usage = &client.get_usage().clone();
+                    let con_time = &connection.conn_time.to_rfc3339().clone();
 
                     let now = Utc::now().to_rfc3339();
                     let session_id = Uuid::new_v4().to_string();
@@ -391,9 +391,9 @@ async fn client_msg(client_id: &str, msg: Message, config: &WireGuard) {
             open_query(client_id, configuration).await;
         },
         Query::Close => {
-            let mut configuration = config.lock().await;
+            let configuration = config.lock().await;
 
-            close_query(client_id, &mut configuration).await;
+            close_query(client_id, configuration).await;
         },
         _ => {
             return return_to_sender(&config.lock().await.clients, client_id, format!("{{ \"message\": \"Unknown query_type, expected one of open, close, resume.\", \"type\": \"error\" }}")).await;
