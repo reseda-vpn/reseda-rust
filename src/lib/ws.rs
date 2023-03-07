@@ -129,7 +129,7 @@ pub async fn client_connection(ws: WebSocket, config: WireGuard, parameters: Opt
                         .await {
                             Ok(query) => {
                                 let tier = query.tier.as_str();
-                                let limit = query.limit.unwrap_or("unlocked".to_string());
+                                let limit = query.limit.as_str();
                                 let int_limit = str::parse::<i128>(&limit).unwrap_or(-1);
 
                                 println!("[msg]: User is of {} tier with a {} limit", &tier, &limit);
