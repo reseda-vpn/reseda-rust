@@ -36,6 +36,7 @@ impl Maximums {
                 if max_val == -1 {
                     -1
                 }else {
+                    // If not an unlimited model, what is the lowest value we can adhere to?
                     if max_val-(down+up) <= 5000000 {
                         5000000
                     } else {
@@ -160,11 +161,26 @@ impl Client {
         
         println!("The maximum value adherence is given by: {} from limit '{}' for {}/{}", max, self.limit, up, down);
         println!("The Max Value is bigger than up and down: {}", (max > *up && max > *down));
-        
-        if max > *up && max > *down {
-            Ok(())
-        }else {
-            Err(0)
+
+        match self.maximums {
+            Maximums::Basic(..) | Maximums::Pro(..) => {
+                if max == -1 {
+                    Ok(())
+                }else {
+                    if max > *up && max > *down {
+                        Ok(())
+                    }else {
+                        Err(0)
+                    }
+                }
+            }
+            Maximums::Free(..) | Maximums::Supporter(..) | Maximums::Unassigned => {
+                if max > *up && max > *down {
+                    Ok(())
+                }else {
+                    Err(0)
+                }
+            }
         }
     }
 
